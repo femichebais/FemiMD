@@ -102,11 +102,15 @@ export async function createTeacher(
   // The redirectTo points at our /reset-password page, which extracts the
   // tokens from the URL hash and lets them choose a password.
   const siteUrl = await getSiteUrl();
+  // First-time teachers land on /accept-invitation (welcome copy + their
+  // school context), not /reset-password (which is for password resets
+  // on existing accounts). The token type is still "recovery" — that's
+  // Supabase's only flavor for "set a password via emailed link."
   const { data: linkData, error: linkErr } =
     await admin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo: `${siteUrl}/reset-password` },
+      options: { redirectTo: `${siteUrl}/accept-invitation` },
     });
   const recoveryUrl = linkData?.properties?.action_link ?? "";
 

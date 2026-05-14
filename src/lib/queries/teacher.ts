@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc, asc, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   classrooms,
@@ -162,7 +162,9 @@ export async function getClassroomDetail(
     .where(
       and(
         eq(caseLevelConfig.level, classroom.level),
-        isNull(cases.deletedAt)
+        isNull(cases.deletedAt),
+        // Teachers only see published cases — drafts are admin-only.
+        isNotNull(cases.publishedAt)
       )
     )
     .orderBy(asc(cases.title));
@@ -232,9 +234,10 @@ export interface StudentDetail {
   }>;
   quizAttempts: Array<{
     id: string;
-    caseId: string;
-    caseTitle: string;
-    scope: "pre" | "post";
+    // Nullable since the quiz refactor — standalone quizzes have no case.
+    caseId: string | null;
+    caseTitle: string | null;
+    scope: "pre" | "post" | null;
     score: number;
     questionCount: number;
     completedAt: Date;

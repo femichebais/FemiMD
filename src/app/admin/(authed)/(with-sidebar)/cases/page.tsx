@@ -47,11 +47,11 @@ export default async function CasesListPage() {
           {rows.map((c) => (
             <li
               key={c.id}
-              className="grid grid-cols-[1fr_160px_120px_120px] items-baseline gap-6 py-5 border-b border-rule"
+              className="grid grid-cols-[1fr_140px_100px_100px_70px] items-center gap-5 py-5 border-b border-rule"
             >
               <Link
                 href={`/admin/cases/${c.id}`}
-                className="font-serif text-[18px] text-ink hover:text-accent transition-colors"
+                className="font-serif text-[18px] text-ink hover:text-accent transition-colors truncate"
               >
                 {c.title}
               </Link>
@@ -65,9 +65,15 @@ export default async function CasesListPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
                 {c.stageCount} stage{c.stageCount === 1 ? "" : "s"}
               </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
                 {c.attemptCount} attempt{c.attemptCount === 1 ? "" : "s"}
               </span>
+              <Link
+                href={`/admin/cases/${c.id}`}
+                className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border border-rule-strong px-3 py-2 rounded-[2px] transition-colors"
+              >
+                Edit
+              </Link>
             </li>
           ))}
         </ul>

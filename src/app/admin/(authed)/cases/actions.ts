@@ -49,6 +49,8 @@ export interface DraftCase {
   description: string;
   scenarioIntro: string;
   linkedDiagnosisSlug: string;
+  // Admin-authored "key takeaways" markdown shown at end of case feedback.
+  clinicalTakeaway: string;
   quizQuestionCount: number;
   levels: DraftCaseLevel[];
   stages: DraftStage[];
@@ -62,7 +64,14 @@ export type CreateCaseResult =
 // Validation
 // =============================================================================
 
-const BINARY_STAGES = new Set<StageType>(["diagnosis", "disposition"]);
+// Stage families — see src/app/admin/(authed)/cases/_components/draft-reducer.ts
+// for the full explanation. These need to match.
+const SINGLE_CORRECT_STAGES = new Set<StageType>(["diagnosis", "disposition"]);
+const MULTI_CORRECT_STAGES = new Set<StageType>(["treatment"]);
+const BINARY_STAGES = new Set<StageType>([
+  ...SINGLE_CORRECT_STAGES,
+  ...MULTI_CORRECT_STAGES,
+]);
 
 function letterFor(i: number): string {
   // A..Z, then AA..ZZ if a stage ever has > 26 choices (we hope it doesn't).
@@ -104,11 +113,18 @@ function validate(draft: DraftCase): string | null {
         return `${label}, choice ${letterFor(j)}: text is required.`;
     }
 
-    if (BINARY_STAGES.has(stage.type)) {
+    if (SINGLE_CORRECT_STAGES.has(stage.type)) {
       const correctCount = stage.choices.filter((c) => c.isCorrect === true)
         .length;
       if (correctCount !== 1) {
         return `${label} (${stage.type}): mark exactly one choice as correct.`;
+      }
+    }
+    if (MULTI_CORRECT_STAGES.has(stage.type)) {
+      const correctCount = stage.choices.filter((c) => c.isCorrect === true)
+        .length;
+      if (correctCount < 1) {
+        return `${label} (${stage.type}): mark at least one choice as correct.`;
       }
     }
   }
@@ -139,7 +155,11 @@ export async function createCase(
           description: draft.description.trim() || null,
           scenarioIntro: draft.scenarioIntro.trim() || null,
           linkedDiagnosisSlug: draft.linkedDiagnosisSlug.trim() || null,
+          clinicalTakeaway: draft.clinicalTakeaway.trim() || null,
           quizQuestionCount: draft.quizQuestionCount,
+          // New cases start as drafts. Admin clicks Publish on the edit
+          // page when ready — teachers/students only see published cases.
+          publishedAt: null,
         })
         .returning({ id: cases.id });
 
@@ -210,6 +230,7 @@ export interface TextEdit {
   description: string;
   scenarioIntro: string;
   linkedDiagnosisSlug: string;
+  clinicalTakeaway: string;
   stageEdits: Array<{
     stageId: string;
     prompt: string;
@@ -249,6 +270,7 @@ export async function updateCaseText(
           description: edit.description.trim() || null,
           scenarioIntro: edit.scenarioIntro.trim() || null,
           linkedDiagnosisSlug: edit.linkedDiagnosisSlug.trim() || null,
+          clinicalTakeaway: edit.clinicalTakeaway.trim() || null,
         })
         .where(and(eq(cases.id, edit.caseId), isNull(cases.deletedAt)));
 
@@ -281,6 +303,39 @@ export async function updateCaseText(
   revalidatePath(`/admin/cases/${edit.caseId}`);
   revalidatePath("/admin/cases");
   return { ok: true };
+}
+
+// =============================================================================
+// togglePublish — flips cases.published_at between NULL (draft) and now()
+// =============================================================================
+
+export type TogglePublishResult =
+  | { ok: true; publishedAt: Date | null }
+  | { ok: false; error: string };
+
+export async function togglePublish(args: {
+  caseId: string;
+  publish: boolean;
+}): Promise<TogglePublishResult> {
+  await requireRole("admin");
+
+  try {
+    const [row] = await db
+      .update(cases)
+      .set({ publishedAt: args.publish ? new Date() : null })
+      .where(and(eq(cases.id, args.caseId), isNull(cases.deletedAt)))
+      .returning({ publishedAt: cases.publishedAt });
+
+    if (!row) return { ok: false, error: "Case not found." };
+
+    revalidatePath(`/admin/cases/${args.caseId}`);
+    revalidatePath("/admin/cases");
+    revalidatePath("/admin");
+    return { ok: true, publishedAt: row.publishedAt };
+  } catch (err) {
+    console.error("[admin/cases/togglePublish]", err);
+    return { ok: false, error: "Could not change publish state." };
+  }
 }
 
 // =============================================================================

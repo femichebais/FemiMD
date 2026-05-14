@@ -13,9 +13,10 @@ export interface ProgressAttempt {
 
 export interface ProgressQuizAttempt {
   id: string;
-  caseId: string;
-  caseTitle: string;
-  scope: "pre" | "post";
+  // Nullable since the quiz refactor — standalone quizzes have no case.
+  caseId: string | null;
+  caseTitle: string | null;
+  scope: "pre" | "post" | null;
   score: number;
   questionCount: number;
   completedAt: Date;

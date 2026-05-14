@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { quizQuestions, quizChoices, cases } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
+import { ensureCaseQuiz } from "@/lib/queries/quiz";
 
 export type QuizScope = "pre" | "post";
 
@@ -24,7 +25,10 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 
 function validate(draft: QuestionDraft): string | null {
   if (!draft.prompt.trim()) return "Prompt is required.";
+  // Client (and spec) wants exactly 4 multiple-choice. Allow 2-4 in editor
+  // to avoid surprise blocks — but flag if < 4 so admin can fill in.
   if (draft.choices.length < 2) return "Need at least two choices.";
+  if (draft.choices.length > 4) return "Quiz questions are limited to 4 choices.";
   if (draft.choices.some((c) => !c.text.trim()))
     return "Every choice needs text.";
   const correct = draft.choices.filter((c) => c.isCorrect).length;
@@ -54,13 +58,15 @@ export async function createQuizQuestion(args: {
     .limit(1);
   if (!theCase) return { ok: false, error: "Case not found." };
 
+  // Resolve (or auto-create) the quiz row for this (case, scope) pair.
+  const quizId = await ensureCaseQuiz(args.caseId, args.scope);
+
   try {
     await db.transaction(async (tx) => {
       const [inserted] = await tx
         .insert(quizQuestions)
         .values({
-          caseId: args.caseId,
-          scope: args.scope,
+          quizId,
           prompt: args.draft.prompt.trim(),
         })
         .returning({ id: quizQuestions.id });

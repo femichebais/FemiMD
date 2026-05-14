@@ -10,7 +10,11 @@ const TYPE_LABEL: Record<Stage["type"], string> = {
   treatment: "Treatment",
 };
 
-const BINARY_STAGES = new Set<Stage["type"]>(["diagnosis", "disposition"]);
+const BINARY_STAGES = new Set<Stage["type"]>([
+  "diagnosis",
+  "disposition",
+  "treatment",
+]);
 
 export interface StageBreakdownItemProps {
   item: StageBreakdown;

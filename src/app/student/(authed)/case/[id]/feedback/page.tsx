@@ -7,6 +7,7 @@ import { caseAttempts } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getAttemptFeedback } from "@/lib/queries/feedback";
 import { StageBreakdownItem } from "./_components/stage-breakdown";
+import { ArticleBody } from "@/components/markdown/article";
 import type { Stage } from "@/db/schema";
 
 interface FeedbackPageProps {
@@ -64,7 +65,9 @@ export default async function FeedbackPage({
   // 1 per binary stage. Mirrors the per-stage max in stage-breakdown.tsx.
   const maxPossible = breakdown.reduce((sum, b) => {
     const binary =
-      b.stage.type === "diagnosis" || b.stage.type === "disposition";
+      b.stage.type === "diagnosis" ||
+      b.stage.type === "disposition" ||
+      b.stage.type === "treatment";
     if (binary) return sum + 1;
     const topN = [...b.choices]
       .sort((x, y) => y.score - x.score)
@@ -115,6 +118,18 @@ export default async function FeedbackPage({
             </div>
           </div>
         </section>
+
+        {/* Clinical takeaway — admin-authored markdown, shown above the
+            stage breakdown. Helps reinforce key concepts before they dive
+            into the picks they made. */}
+        {caseData.clinicalTakeaway && (
+          <section className="mb-14">
+            <StageLabel className="mb-5">Clinical takeaway</StageLabel>
+            <div className="border-l-2 border-accent pl-6 max-w-read">
+              <ArticleBody markdown={caseData.clinicalTakeaway} />
+            </div>
+          </section>
+        )}
 
         <StageLabel className="mb-7">Stage breakdown</StageLabel>
 

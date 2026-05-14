@@ -7,6 +7,8 @@ import {
   type ClientStage,
   type DraftAction,
   BINARY_STAGES,
+  SINGLE_CORRECT_STAGES,
+  MULTI_CORRECT_STAGES,
   letterFor,
 } from "./draft-reducer";
 
@@ -45,6 +47,8 @@ export function StageCard({
 }: StageCardProps) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const isBinary = BINARY_STAGES.has(stage.type);
+  const isSingleCorrect = SINGLE_CORRECT_STAGES.has(stage.type);
+  const isMultiCorrect = MULTI_CORRECT_STAGES.has(stage.type);
 
   return (
     <div
@@ -121,7 +125,11 @@ export function StageCard({
               <>
                 Choices{" "}
                 <span className="text-ink-fade ml-2">
-                  {isBinary ? "mark exactly one correct" : "scores 0–3"}
+                  {isSingleCorrect
+                    ? "mark exactly one correct"
+                    : isMultiCorrect
+                      ? "mark any correct (student needs one)"
+                      : "scores ≥ 0"}
                 </span>
               </>
             }
@@ -129,7 +137,8 @@ export function StageCard({
             <ChoicesEditor
               stage={stage}
               dispatch={dispatch}
-              isBinary={isBinary}
+              isSingleCorrect={isSingleCorrect}
+              isMultiCorrect={isMultiCorrect}
               locked={locked}
             />
           </FieldGroup>
@@ -206,14 +215,17 @@ function FieldGroup({
 function ChoicesEditor({
   stage,
   dispatch,
-  isBinary,
+  isSingleCorrect,
+  isMultiCorrect,
   locked,
 }: {
   stage: ClientStage;
   dispatch: Dispatch<DraftAction>;
-  isBinary: boolean;
+  isSingleCorrect: boolean;
+  isMultiCorrect: boolean;
   locked?: boolean;
 }) {
+  const isBinary = isSingleCorrect || isMultiCorrect;
   return (
     <div className="border border-rule-strong bg-surface rounded-[2px]">
       {stage.choices.map((choice, i) => (
@@ -243,7 +255,7 @@ function ChoicesEditor({
             placeholder="Choice text"
             className="border-none bg-transparent font-serif text-[15px] text-ink focus:outline-none w-full"
           />
-          {isBinary ? (
+          {isSingleCorrect ? (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -264,11 +276,31 @@ function ChoicesEditor({
                 Correct
               </span>
             </label>
+          ) : isMultiCorrect ? (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={choice.isCorrect === true}
+                disabled={locked}
+                onChange={(e) =>
+                  dispatch({
+                    type: "SET_CHOICE_CORRECT",
+                    stageId: stage.tempId,
+                    choiceId: choice.tempId,
+                    value: e.target.checked,
+                  })
+                }
+                className="accent-accent w-[14px] h-[14px]"
+              />
+              <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-mute">
+                Correct
+              </span>
+            </label>
           ) : (
             <input
               type="number"
               min={0}
-              max={3}
+              max={100}
               value={choice.score}
               onChange={(e) =>
                 dispatch({

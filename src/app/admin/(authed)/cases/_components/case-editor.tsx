@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { StageType } from "../actions";
-import { createCase, updateCaseText } from "../actions";
+import { createCase, updateCaseText, togglePublish } from "../actions";
 import {
   draftReducer,
   emptyCase,
@@ -22,6 +22,9 @@ export interface CaseEditorProps {
   initialDraft?: ClientCase;
   // Only relevant in edit mode; passed through to sidebar + update action.
   caseId?: string;
+  // Initial publish state. Used to render Publish/Unpublish toggle in edit
+  // mode. Optimistically updated after togglePublish call.
+  initialPublishedAt?: Date | null;
   meta?: {
     stageCount?: number;
     attemptCount?: number;
@@ -47,9 +50,14 @@ export function CaseEditor({
   mode,
   initialDraft,
   caseId,
+  initialPublishedAt = null,
   meta,
   serverIdMap,
 }: CaseEditorProps) {
+  const [publishedAt, setPublishedAt] = useState<Date | null>(
+    initialPublishedAt
+  );
+  const [isPublishing, startPublishTransition] = useTransition();
   const [draft, dispatch] = useReducer(
     draftReducer,
     initialDraft ?? emptyCase()
@@ -126,6 +134,20 @@ export function CaseEditor({
     setRestoredAt(null);
   };
 
+  const handleTogglePublish = () => {
+    if (!caseId || isPublishing) return;
+    const nextState = publishedAt === null;
+    startPublishTransition(async () => {
+      const result = await togglePublish({ caseId, publish: nextState });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPublishedAt(result.publishedAt);
+      router.refresh();
+    });
+  };
+
   const handleSubmit = () => {
     setError(null);
     setSuccess(null);
@@ -181,6 +203,7 @@ export function CaseEditor({
           description: draft.description,
           scenarioIntro: draft.scenarioIntro,
           linkedDiagnosisSlug: draft.linkedDiagnosisSlug,
+          clinicalTakeaway: draft.clinicalTakeaway,
           stageEdits,
         });
         if (!result.ok) {
@@ -218,12 +241,44 @@ export function CaseEditor({
           />
           <span className="font-mono text-[10px] text-ink-mute uppercase tracking-[0.2em] flex items-center gap-2 ml-4 whitespace-nowrap">
             <span
-              className="w-[6px] h-[6px] rounded-full bg-accent"
+              className={`w-[6px] h-[6px] rounded-full ${
+                mode === "create"
+                  ? "bg-ink-fade"
+                  : publishedAt
+                    ? "bg-accent"
+                    : "bg-ink-fade"
+              }`}
               aria-hidden
             />
-            {mode === "create" ? "Drafting" : "Published"}
+            {mode === "create"
+              ? "Drafting"
+              : publishedAt
+                ? "Published"
+                : "Draft"}
           </span>
         </div>
+
+        {/* Publish / unpublish toggle (edit mode only) */}
+        {mode === "edit" && (
+          <div className="flex items-center justify-end mb-3 -mt-2">
+            <button
+              type="button"
+              onClick={handleTogglePublish}
+              disabled={isPublishing}
+              className={`font-mono text-[10px] uppercase tracking-[0.18em] px-3 py-2 rounded-[2px] transition-colors disabled:opacity-50 ${
+                publishedAt
+                  ? "border border-rule-strong text-ink-mute hover:text-[var(--warning)] hover:border-[var(--warning)]"
+                  : "bg-ink text-paper hover:bg-accent"
+              }`}
+            >
+              {isPublishing
+                ? "Working…"
+                : publishedAt
+                  ? "Unpublish"
+                  : "Publish case"}
+            </button>
+          </div>
+        )}
 
         {/* Draft-state banner — only in create mode, shows the auto-save
             state and lets admin discard the in-progress draft. */}
@@ -257,8 +312,33 @@ export function CaseEditor({
           }
           placeholder="A 56-year-old man suddenly develops severe central chest pain at rest…"
           rows={2}
-          className="w-full bg-transparent border-none font-serif italic text-[14px] text-ink-mute mb-11 focus:outline-none resize-y placeholder:text-ink-fade"
+          className="w-full bg-transparent border-none font-serif italic text-[14px] text-ink-mute mb-6 focus:outline-none resize-y placeholder:text-ink-fade"
         />
+
+        {/* Clinical takeaway — shown at end of case on the feedback page.
+            Markdown supported. */}
+        <div className="mb-11">
+          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-ink-mute mb-2">
+            Clinical takeaway
+            <span className="ml-2 normal-case tracking-normal text-ink-fade font-sans">
+              shown on the feedback page after the case · markdown supported
+            </span>
+          </label>
+          <textarea
+            value={draft.clinicalTakeaway}
+            onChange={(e) =>
+              dispatch({
+                type: "SET_CLINICAL_TAKEAWAY",
+                value: e.target.value,
+              })
+            }
+            placeholder={
+              "Key teaching points the student should remember. Markdown is supported — use **bold**, lists, links."
+            }
+            rows={4}
+            className="w-full border border-rule-strong bg-surface rounded-[2px] px-[14px] py-3 font-serif text-[15px] text-ink leading-[1.55] focus:outline-none focus:border-accent resize-y"
+          />
+        </div>
 
         {/* Stages */}
         {draft.stages.length === 0 ? (

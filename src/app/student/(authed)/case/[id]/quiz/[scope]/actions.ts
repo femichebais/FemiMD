@@ -34,6 +34,7 @@ export type SubmitQuizResult =
 export async function submitQuizAttempt(args: {
   caseId: string;
   scope: QuizScope;
+  quizId: string;
   answers: QuizAnswerInput[];
 }): Promise<SubmitQuizResult> {
   const { user } = await requireRole("student");
@@ -91,6 +92,9 @@ export async function submitQuizAttempt(args: {
       .insert(quizAttempts)
       .values({
         studentId: user.id,
+        // quiz_id is the new primary linkage; case_id + scope kept so the
+        // existing "case completed" check (case has post-quiz) keeps working.
+        quizId: args.quizId,
         caseId: args.caseId,
         scope: args.scope,
         questionCount: total,

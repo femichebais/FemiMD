@@ -8,6 +8,20 @@
       "when": 1778693319576,
       "tag": "0000_funny_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778784346444,
+      "tag": "0001_parallel_wilson_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778784830117,
+      "tag": "0002_glossy_skin",
+      "breakpoints": true
     }
   ]
 }

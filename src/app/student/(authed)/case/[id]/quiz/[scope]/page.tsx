@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 import { cases } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCaseForStudent } from "@/lib/queries/student-cases";
-import { pickRandomQuestions } from "@/lib/queries/quiz";
+import { pickRandomQuestions, ensureCaseQuiz } from "@/lib/queries/quiz";
 import { QuizPlayer } from "./_components/quiz-player";
 import type { QuizScope } from "./actions";
 
@@ -39,9 +39,9 @@ export default async function StudentQuizPage({ params }: PageProps) {
 
   if (!caseRow) notFound();
 
+  const quizId = await ensureCaseQuiz(id, scope);
   const questions = await pickRandomQuestions(
-    id,
-    scope,
+    quizId,
     caseRow.quizQuestionCount
   );
 
@@ -76,6 +76,7 @@ export default async function StudentQuizPage({ params }: PageProps) {
       caseId={id}
       caseTitle={caseRow.title}
       scope={scope}
+      quizId={quizId}
       questions={questions}
     />
   );

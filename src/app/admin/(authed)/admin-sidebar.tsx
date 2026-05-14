@@ -8,7 +8,9 @@ const SECTIONS: Array<{ label: string; href: string; match: RegExp }> = [
   { label: "Overview", href: "/admin", match: /^\/admin\/?$/ },
   { label: "Schools", href: "/admin/schools", match: /^\/admin\/schools/ },
   { label: "Teachers", href: "/admin/teachers", match: /^\/admin\/teachers/ },
+  { label: "Students", href: "/admin/students", match: /^\/admin\/students/ },
   { label: "Cases", href: "/admin/cases", match: /^\/admin\/cases/ },
+  { label: "Quizzes", href: "/admin/quizzes", match: /^\/admin\/quizzes/ },
   { label: "Library", href: "/admin/library", match: /^\/admin\/library/ },
   { label: "Resources", href: "/admin/resources", match: /^\/admin\/resources/ },
 ];

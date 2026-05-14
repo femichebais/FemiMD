@@ -49,6 +49,7 @@ export default async function EditCasePage({ params }: EditCasePageProps) {
     description: data.case.description ?? "",
     scenarioIntro: data.case.scenarioIntro ?? "",
     linkedDiagnosisSlug: data.case.linkedDiagnosisSlug ?? "",
+    clinicalTakeaway: data.case.clinicalTakeaway ?? "",
     quizQuestionCount: data.case.quizQuestionCount,
     levels: data.levels.map((l) => ({
       level: l.level,
@@ -80,6 +81,7 @@ export default async function EditCasePage({ params }: EditCasePageProps) {
         mode="edit"
         initialDraft={initialDraft}
         caseId={id}
+        initialPublishedAt={data.case.publishedAt}
         meta={{
           stageCount: data.stages.length,
           attemptCount: data.attemptCount,

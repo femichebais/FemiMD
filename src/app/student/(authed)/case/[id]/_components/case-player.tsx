@@ -24,7 +24,14 @@ const TYPE_LABEL: Record<Stage["type"], string> = {
   treatment: "Treatment",
 };
 
-const BINARY_STAGES = new Set<Stage["type"]>(["diagnosis", "disposition"]);
+// Binary = score derived from is_correct, not a weighted integer.
+// Treatment was added here as "multi-correct binary" — admin can mark
+// several choices correct; student picks one, +1 if it's any of them.
+const BINARY_STAGES = new Set<Stage["type"]>([
+  "diagnosis",
+  "disposition",
+  "treatment",
+]);
 
 interface Pick {
   choiceId: string;

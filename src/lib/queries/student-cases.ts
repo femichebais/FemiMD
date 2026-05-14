@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   cases,
@@ -9,10 +9,49 @@ import {
   students,
   stages,
   choices,
+  studentCaseGrants,
   type Case,
   type Stage,
   type Choice,
 } from "@/db/schema";
+
+// Returns case ids this student can access via either path:
+//   1. Classroom release (teacher toggled in case_releases)
+//   2. Admin override grant (student_case_grants row)
+// Both query strands return only ids; the caller hydrates the full case
+// data afterward with a WHERE id IN ... filter.
+async function accessibleCaseIds(studentId: string): Promise<Set<string>> {
+  const [studentRow] = await db
+    .select({ classroomId: students.classroomId })
+    .from(students)
+    .where(and(eq(students.id, studentId), isNull(students.deletedAt)))
+    .limit(1);
+
+  const ids = new Set<string>();
+
+  if (studentRow?.classroomId) {
+    const released = await db
+      .select({ caseId: caseReleases.caseId })
+      .from(caseReleases)
+      .innerJoin(
+        classrooms,
+        and(
+          eq(classrooms.id, caseReleases.classroomId),
+          eq(classrooms.id, studentRow.classroomId),
+          isNull(classrooms.deletedAt)
+        )
+      );
+    for (const r of released) ids.add(r.caseId);
+  }
+
+  const granted = await db
+    .select({ caseId: studentCaseGrants.caseId })
+    .from(studentCaseGrants)
+    .where(eq(studentCaseGrants.studentId, studentId));
+  for (const g of granted) ids.add(g.caseId);
+
+  return ids;
+}
 
 export interface StudentCaseRow {
   id: string;
@@ -23,89 +62,79 @@ export interface StudentCaseRow {
   stageCount: number;
 }
 
-// Released cases the student can see: case is not deleted, released to
-// their classroom, and tagged for their classroom's level.
-//
-// This duplicates RLS scoping at the app layer — defense in depth, also
-// because we want to JOIN release/level/stage-count in one trip which RLS
-// would do but with less control over the columns we select.
+// Cases the student can see — union of classroom-released cases and
+// admin-granted cases. Both go through the same "published, not deleted"
+// filter. Admin grants intentionally bypass level scoping (the override is
+// admin authority, not a level rule).
 export async function listStudentCases(
   studentId: string
 ): Promise<StudentCaseRow[]> {
+  const ids = await accessibleCaseIds(studentId);
+  if (ids.size === 0) return [];
+
   const rows = await db
     .select({
       id: cases.id,
       title: cases.title,
       description: cases.description,
       scenarioIntro: cases.scenarioIntro,
-      releasedAt: caseReleases.releasedAt,
+      // releasedAt is informational; for grant-only access we fall back
+      // to the case's publishedAt as a stand-in for "available since".
+      releasedAt: sql<Date>`
+        COALESCE(
+          (SELECT cr.released_at FROM case_releases cr
+           WHERE cr.case_id = ${cases.id} LIMIT 1),
+          ${cases.publishedAt}
+        )`,
       stageCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${stages}
         WHERE ${stages.caseId} = ${cases.id}
       )`,
     })
     .from(cases)
-    .innerJoin(caseReleases, eq(caseReleases.caseId, cases.id))
-    .innerJoin(students, eq(students.id, studentId))
-    .innerJoin(
-      classrooms,
+    .where(
       and(
-        eq(classrooms.id, students.classroomId),
-        eq(classrooms.id, caseReleases.classroomId)
+        inArray(cases.id, Array.from(ids)),
+        isNull(cases.deletedAt),
+        isNotNull(cases.publishedAt)
       )
     )
-    .innerJoin(
-      caseLevelConfig,
-      and(
-        eq(caseLevelConfig.caseId, cases.id),
-        eq(caseLevelConfig.level, classrooms.level)
-      )
-    )
-    .where(and(isNull(cases.deletedAt), isNull(classrooms.deletedAt)))
-    .orderBy(desc(caseReleases.releasedAt));
+    .orderBy(desc(cases.createdAt));
 
   return rows;
 }
 
-// Same scoping rules but for a single case lookup — used by the player.
+// Single case lookup — same access rules.
 export async function getCaseForStudent(
   studentId: string,
   caseId: string
 ): Promise<StudentCaseRow | null> {
+  const ids = await accessibleCaseIds(studentId);
+  if (!ids.has(caseId)) return null;
+
   const [row] = await db
     .select({
       id: cases.id,
       title: cases.title,
       description: cases.description,
       scenarioIntro: cases.scenarioIntro,
-      releasedAt: caseReleases.releasedAt,
+      releasedAt: sql<Date>`
+        COALESCE(
+          (SELECT cr.released_at FROM case_releases cr
+           WHERE cr.case_id = ${cases.id} LIMIT 1),
+          ${cases.publishedAt}
+        )`,
       stageCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${stages}
         WHERE ${stages.caseId} = ${cases.id}
       )`,
     })
     .from(cases)
-    .innerJoin(caseReleases, eq(caseReleases.caseId, cases.id))
-    .innerJoin(students, eq(students.id, studentId))
-    .innerJoin(
-      classrooms,
-      and(
-        eq(classrooms.id, students.classroomId),
-        eq(classrooms.id, caseReleases.classroomId)
-      )
-    )
-    .innerJoin(
-      caseLevelConfig,
-      and(
-        eq(caseLevelConfig.caseId, cases.id),
-        eq(caseLevelConfig.level, classrooms.level)
-      )
-    )
     .where(
       and(
         eq(cases.id, caseId),
         isNull(cases.deletedAt),
-        isNull(classrooms.deletedAt)
+        isNotNull(cases.publishedAt)
       )
     )
     .limit(1);
@@ -214,40 +243,24 @@ export interface CasePlayData {
   choices: Choice[];
 }
 
-// Full payload for the player. Validates access via the same join pattern,
-// then loads stages (ordered) and choices (ordered within stage). If the
-// access check fails (case not released, wrong level, soft-deleted),
-// returns null and the page can 404 / forbid.
+// Full payload for the player. Access check uses accessibleCaseIds() —
+// classroom release + admin grant. Returns null on no access; the page
+// 404s in that case (doesn't distinguish "doesn't exist" from "can't see").
 export async function getCasePlayData(
   studentId: string,
   caseId: string
 ): Promise<CasePlayData | null> {
-  // Access check: join through release + level + classroom. Returns the
-  // case row only if everything matches.
+  const ids = await accessibleCaseIds(studentId);
+  if (!ids.has(caseId)) return null;
+
   const [caseRow] = await db
     .select({ case: cases })
     .from(cases)
-    .innerJoin(caseReleases, eq(caseReleases.caseId, cases.id))
-    .innerJoin(students, eq(students.id, studentId))
-    .innerJoin(
-      classrooms,
-      and(
-        eq(classrooms.id, students.classroomId),
-        eq(classrooms.id, caseReleases.classroomId)
-      )
-    )
-    .innerJoin(
-      caseLevelConfig,
-      and(
-        eq(caseLevelConfig.caseId, cases.id),
-        eq(caseLevelConfig.level, classrooms.level)
-      )
-    )
     .where(
       and(
         eq(cases.id, caseId),
         isNull(cases.deletedAt),
-        isNull(classrooms.deletedAt)
+        isNotNull(cases.publishedAt)
       )
     )
     .limit(1);

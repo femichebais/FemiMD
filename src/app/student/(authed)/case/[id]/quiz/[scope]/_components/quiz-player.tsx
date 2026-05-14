@@ -26,6 +26,7 @@ export interface QuizPlayerProps {
   caseId: string;
   caseTitle: string;
   scope: QuizScope;
+  quizId: string;
   questions: QuestionWithChoices[];
 }
 
@@ -33,6 +34,7 @@ export function QuizPlayer({
   caseId,
   caseTitle,
   scope,
+  quizId,
   questions,
 }: QuizPlayerProps) {
   const router = useRouter();
@@ -50,6 +52,7 @@ export function QuizPlayer({
       const result = await submitQuizAttempt({
         caseId,
         scope,
+        quizId,
         answers: questions.map((q) => ({
           questionId: q.question.id,
           choiceId: picks.get(q.question.id)!,

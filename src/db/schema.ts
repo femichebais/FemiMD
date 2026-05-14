@@ -147,8 +147,14 @@ export const cases = pgTable("cases", {
   scenarioIntro: text("scenario_intro"),
   // Slug for cross-linking to the relevant library article on the feedback screen.
   linkedDiagnosisSlug: text("linked_diagnosis_slug"),
+  // Admin-authored "key takeaways" content shown at the end of the case.
+  // Markdown; rendered on the feedback page below the score banner.
+  clinicalTakeaway: text("clinical_takeaway"),
   // How many quiz questions to draw from the pool per attempt. Section 6.
   quizQuestionCount: integer("quiz_question_count").notNull().default(10),
+  // Publication state. NULL = draft (only admin can see it). Set =
+  // published; teachers can release, students can take.
+  publishedAt: timestamp("published_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -225,17 +231,39 @@ export const choices = pgTable(
 );
 
 // =============================================================================
-// Quiz — pre/post per case
+// Quizzes — standalone quiz model
 // =============================================================================
+// A quiz is a pool of questions. Optionally tied to a case (case-attached
+// pre/post tests) OR free-standing (admin-authored quiz banks the student
+// can build their own quiz from by topic).
+
+export const quizzes = pgTable("quizzes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  // Topic tag (e.g. "Cardiology") for student-built quizzes by topic.
+  // Optional — case-attached quizzes inherit topic from their case.
+  topic: text("topic"),
+  // Optional case association. NULL = standalone quiz. Set = pre/post test
+  // for that case (scope below disambiguates).
+  caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
+  // Only set when caseId is set — indicates whether this is the case's
+  // pre-test or post-test. Standalone quizzes have NULL scope.
+  scope: quizScopeEnum("scope"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
 
 export const quizQuestions = pgTable(
   "quiz_questions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    caseId: uuid("case_id")
+    // New: quizzes own questions. Was case_id+scope; migration creates
+    // one quiz per (case, scope) for any prior data.
+    quizId: uuid("quiz_id")
       .notNull()
-      .references(() => cases.id, { onDelete: "cascade" }),
-    scope: quizScopeEnum("scope").notNull(),
+      .references(() => quizzes.id, { onDelete: "cascade" }),
     prompt: text("prompt").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -243,10 +271,7 @@ export const quizQuestions = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => ({
-    caseScopeIdx: index("quiz_questions_case_scope_idx").on(
-      table.caseId,
-      table.scope
-    ),
+    quizIdx: index("quiz_questions_quiz_idx").on(table.quizId),
   })
 );
 
@@ -327,10 +352,16 @@ export const quizAttempts = pgTable(
     studentId: uuid("student_id")
       .notNull()
       .references(() => students.id, { onDelete: "restrict" }),
-    caseId: uuid("case_id")
-      .notNull()
-      .references(() => cases.id, { onDelete: "restrict" }),
-    scope: quizScopeEnum("scope").notNull(),
+    // The quiz this attempt is against. NEW — replaces caseId+scope as the
+    // primary linkage. caseId/scope kept for now to preserve historical
+    // analytics on case-attached attempts (NULL for standalone-quiz attempts).
+    quizId: uuid("quiz_id").references(() => quizzes.id, {
+      onDelete: "restrict",
+    }),
+    caseId: uuid("case_id").references(() => cases.id, {
+      onDelete: "restrict",
+    }),
+    scope: quizScopeEnum("scope"),
     questionCount: integer("question_count").notNull(),
     score: integer("score").notNull(),
     // [{ question_id, choice_id, is_correct }]
@@ -341,10 +372,59 @@ export const quizAttempts = pgTable(
   },
   (table) => ({
     studentIdx: index("quiz_attempts_student_idx").on(table.studentId),
-    studentCaseScopeIdx: index("quiz_attempts_student_case_scope_idx").on(
+    studentQuizIdx: index("quiz_attempts_student_quiz_idx").on(
       table.studentId,
-      table.caseId,
-      table.scope
+      table.quizId
+    ),
+  })
+);
+
+// =============================================================================
+// Quiz releases — teacher releases quizzes to classrooms (independent of
+// case releases). Admin override via student_quiz_grants below.
+// =============================================================================
+
+export const quizReleases = pgTable(
+  "quiz_releases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    quizId: uuid("quiz_id")
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "cascade" }),
+    releasedAt: timestamp("released_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomQuizUq: uniqueIndex("quiz_releases_classroom_quiz_uq").on(
+      table.classroomId,
+      table.quizId
+    ),
+  })
+);
+
+export const studentQuizGrants = pgTable(
+  "student_quiz_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    quizId: uuid("quiz_id")
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "cascade" }),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    grantedBy: uuid("granted_by"),
+  },
+  (table) => ({
+    studentQuizUq: uniqueIndex("student_quiz_grants_uq").on(
+      table.studentId,
+      table.quizId
     ),
   })
 );
@@ -413,6 +493,39 @@ export const resourceLevels = pgTable(
 );
 
 // =============================================================================
+// Admin override grants — bypass classroom-level release for individual students
+// =============================================================================
+// The release model is primary: teachers toggle case_releases per classroom,
+// every student in that classroom inherits access. These grant tables are
+// the *exception path* — admin can hand a specific student access to a
+// specific case even if it's not released to their classroom (or the
+// student doesn't have a classroom). One row per (student, case) pair.
+
+export const studentCaseGrants = pgTable(
+  "student_case_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    // Who granted it — for audit. References auth.users via profiles.id.
+    grantedBy: uuid("granted_by"),
+  },
+  (table) => ({
+    studentCaseUq: uniqueIndex("student_case_grants_uq").on(
+      table.studentId,
+      table.caseId
+    ),
+  })
+);
+
+// =============================================================================
 // Case releases — teacher → classroom
 // =============================================================================
 // Brief: "Presence = released. No record = not released."
@@ -477,3 +590,11 @@ export type Resource = typeof resources.$inferSelect;
 export type NewResource = typeof resources.$inferInsert;
 export type CaseRelease = typeof caseReleases.$inferSelect;
 export type NewCaseRelease = typeof caseReleases.$inferInsert;
+export type StudentCaseGrant = typeof studentCaseGrants.$inferSelect;
+export type NewStudentCaseGrant = typeof studentCaseGrants.$inferInsert;
+export type Quiz = typeof quizzes.$inferSelect;
+export type NewQuiz = typeof quizzes.$inferInsert;
+export type QuizRelease = typeof quizReleases.$inferSelect;
+export type NewQuizRelease = typeof quizReleases.$inferInsert;
+export type StudentQuizGrant = typeof studentQuizGrants.$inferSelect;
+export type NewStudentQuizGrant = typeof studentQuizGrants.$inferInsert;

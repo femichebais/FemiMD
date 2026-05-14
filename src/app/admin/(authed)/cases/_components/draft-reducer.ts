@@ -27,6 +27,7 @@ export type DraftAction =
   | { type: "SET_DESCRIPTION"; value: string }
   | { type: "SET_SCENARIO"; value: string }
   | { type: "SET_LINKED_SLUG"; value: string }
+  | { type: "SET_CLINICAL_TAKEAWAY"; value: string }
   | { type: "SET_QUIZ_COUNT"; value: number }
   | { type: "TOGGLE_LEVEL"; level: Level }
   | { type: "TOGGLE_TREATMENT"; level: Level }
@@ -84,15 +85,29 @@ export function emptyCase(): ClientCase {
     description: "",
     scenarioIntro: "",
     linkedDiagnosisSlug: "",
+    clinicalTakeaway: "",
     quizQuestionCount: 10,
     levels: [],
     stages: [],
   };
 }
 
-// Binary-correct stages always score 1 for the correct answer / 0 otherwise.
-// The editor hides the score column for these types — score is derived.
-const BINARY_STAGES = new Set<StageType>(["diagnosis", "disposition"]);
+// Three stage families:
+//   * SINGLE_CORRECT — exactly one choice marked is_correct (radio in editor).
+//     Diagnosis + disposition; the "right" answer is unique.
+//   * MULTI_CORRECT — one or more choices marked is_correct (checkbox in
+//     editor). Treatment; multiple acceptable treatments may exist, student
+//     picks any ONE of them = +1.
+//   * SCORED — choices have integer scores (history/exam). No is_correct.
+//
+// SINGLE_CORRECT ∪ MULTI_CORRECT is the "binary" family — score is derived
+// from is_correct at insert time (1 if picked.is_correct else 0).
+const SINGLE_CORRECT_STAGES = new Set<StageType>(["diagnosis", "disposition"]);
+const MULTI_CORRECT_STAGES = new Set<StageType>(["treatment"]);
+const BINARY_STAGES = new Set<StageType>([
+  ...SINGLE_CORRECT_STAGES,
+  ...MULTI_CORRECT_STAGES,
+]);
 
 function mapStage(
   state: ClientCase,
@@ -130,6 +145,8 @@ export function draftReducer(
       return { ...state, scenarioIntro: action.value };
     case "SET_LINKED_SLUG":
       return { ...state, linkedDiagnosisSlug: action.value };
+    case "SET_CLINICAL_TAKEAWAY":
+      return { ...state, clinicalTakeaway: action.value };
     case "SET_QUIZ_COUNT":
       return { ...state, quizQuestionCount: Math.max(1, action.value) };
 
@@ -229,23 +246,28 @@ export function draftReducer(
       }));
 
     case "SET_CHOICE_CORRECT": {
-      // For binary stages, marking a choice correct unmarks all others.
-      // For scored stages, multiple choices CAN be marked correct (treatment).
+      // SINGLE_CORRECT (diagnosis/disposition): radio behavior — marking
+      // one choice correct unmarks the others.
+      // MULTI_CORRECT (treatment): checkbox behavior — each choice toggles
+      // independently; multiple correct answers are allowed.
+      // SCORED (history/exam): no is_correct semantics (this action
+      // shouldn't fire, but treat as independent toggle if it does).
       const stage = state.stages.find((s) => s.tempId === action.stageId);
       if (!stage) return state;
-      const isBinary = BINARY_STAGES.has(stage.type);
-      if (!isBinary) {
-        return mapChoice(state, action.stageId, action.choiceId, (c) => ({
-          ...c,
-          isCorrect: action.value,
+
+      if (SINGLE_CORRECT_STAGES.has(stage.type)) {
+        return mapStage(state, action.stageId, (s) => ({
+          ...s,
+          choices: s.choices.map((c) => ({
+            ...c,
+            isCorrect: c.tempId === action.choiceId ? action.value : false,
+          })),
         }));
       }
-      return mapStage(state, action.stageId, (s) => ({
-        ...s,
-        choices: s.choices.map((c) => ({
-          ...c,
-          isCorrect: c.tempId === action.choiceId ? action.value : false,
-        })),
+      // MULTI_CORRECT or any other case: toggle this choice only.
+      return mapChoice(state, action.stageId, action.choiceId, (c) => ({
+        ...c,
+        isCorrect: action.value,
       }));
     }
 
@@ -277,6 +299,7 @@ export function clientCaseToDraft(c: ClientCase): DraftCase {
     description: c.description,
     scenarioIntro: c.scenarioIntro,
     linkedDiagnosisSlug: c.linkedDiagnosisSlug,
+    clinicalTakeaway: c.clinicalTakeaway,
     quizQuestionCount: c.quizQuestionCount,
     levels: c.levels,
     stages: c.stages.map((s) => ({
@@ -294,4 +317,4 @@ export function clientCaseToDraft(c: ClientCase): DraftCase {
   };
 }
 
-export { BINARY_STAGES };
+export { BINARY_STAGES, SINGLE_CORRECT_STAGES, MULTI_CORRECT_STAGES };
