@@ -4,11 +4,25 @@ import { revalidatePath } from "next/cache";
 import { eq, isNull, and } from "drizzle-orm";
 import { db } from "@/db/client";
 import { profiles, teachers, schools } from "@/db/schema";
+import { isNotNull } from "drizzle-orm";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
 import { teacherInviteEmail } from "@/lib/email/templates";
 import { getSiteUrl } from "@/lib/site-url";
+
+// Returns the auth.users.id for a soft-deleted teacher whose email matches.
+// Used to recover from the pre-tombstone state: previously, deleteTeacher
+// left auth.users in place with the original email, so re-creating with
+// that email failed forever. This finds those stuck rows.
+async function findStaleAuthUserId(email: string): Promise<string | null> {
+  const [row] = await db
+    .select({ id: teachers.id })
+    .from(teachers)
+    .where(and(eq(teachers.email, email), isNotNull(teachers.deletedAt)))
+    .limit(1);
+  return row?.id ?? null;
+}
 
 export interface TeacherFormState {
   error?: string;
@@ -59,16 +73,43 @@ export async function createTeacher(
   // Step 1: create the auth user. No password — teacher sets it via recovery.
   // app_metadata.role is what middleware and RLS read, so set it here so the
   // teacher's first JWT already carries the right role.
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+  let createResult = await admin.auth.admin.createUser({
     email,
     email_confirm: true,
     app_metadata: { role: "teacher" },
     user_metadata: { name },
   });
 
-  if (createErr || !created.user) {
+  // If the email is already taken AND it belongs to a soft-deleted teacher
+  // (or any record we recognize as previously-deleted), tombstone the
+  // existing auth.users email and retry once. This recovers from the prior
+  // state where deleteTeacher didn't tombstone — without it, the admin
+  // would be permanently locked out of reusing that email.
+  if (
+    createResult.error &&
+    /already (registered|exists)/i.test(createResult.error.message)
+  ) {
+    const existing = await findStaleAuthUserId(email);
+    if (existing) {
+      const tombstone = `deleted-${Date.now()}-${existing.slice(0, 8)}@deleted.invalid`;
+      const { error: tombstoneErr } = await admin.auth.admin.updateUserById(
+        existing,
+        { email: tombstone, email_confirm: true }
+      );
+      if (!tombstoneErr) {
+        createResult = await admin.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          app_metadata: { role: "teacher" },
+          user_metadata: { name },
+        });
+      }
+    }
+  }
+
+  const { data: created, error: createErr } = createResult;
+  if (createErr || !created?.user) {
     const msg = createErr?.message ?? "Could not create auth user.";
-    // Duplicate email is the common case — make it readable.
     const friendly = /already (registered|exists)/i.test(msg)
       ? "A user with that email already exists."
       : msg;
@@ -161,13 +202,38 @@ export async function deleteTeacher(
   if (!id) return { error: "Missing teacher id." };
 
   try {
-    await db
-      .update(teachers)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(teachers.id, id), isNull(teachers.deletedAt)));
-    // NOTE: profiles row and auth.users row are intentionally kept so
-    // historical case/quiz attempts still resolve names + role. To fully
-    // remove a teacher's auth ability, do that from Supabase admin UI.
+    await db.transaction(async (tx) => {
+      // 1. Soft-delete the teacher row so historical data (their classrooms,
+      //    student attempts inside those classrooms) stays intact.
+      await tx
+        .update(teachers)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(teachers.id, id), isNull(teachers.deletedAt)));
+    });
+
+    // 2. Tombstone the email in auth.users so the admin can re-add a
+    //    different teacher with that email later. Supabase enforces a
+    //    unique-email constraint on auth.users; without this step the
+    //    second "Invite teacher" with the same email errors with
+    //    "A user with this email address has already been registered."
+    //
+    //    .invalid is a reserved TLD (RFC 2606) so the tombstone can never
+    //    collide with a real address. We keep the profile + auth user
+    //    around so case/quiz attempt history continues to resolve names.
+    const admin = createSupabaseAdminClient();
+    const tombstoneEmail = `deleted-${Date.now()}-${id.slice(0, 8)}@deleted.invalid`;
+    const { error: renameErr } = await admin.auth.admin.updateUserById(id, {
+      email: tombstoneEmail,
+      email_confirm: true,
+    });
+    if (renameErr) {
+      // Non-fatal — DB delete already succeeded. Log and continue; admin
+      // can rotate the auth email manually if they need to free it.
+      console.warn(
+        "[admin/teachers/deleteTeacher] tombstone email failed:",
+        renameErr.message
+      );
+    }
   } catch (err) {
     console.error("[admin/teachers/deleteTeacher]", err);
     return { error: "Could not delete teacher." };
