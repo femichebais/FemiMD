@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Femi Medical — Design Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Geist:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF7F2;
+    --paper-2: #F2EEE5;
+    --paper-3: #E8E3D6;
+    --ink: #1B2236;
+    --ink-mute: #5B6075;
+    --ink-fade: #8A8E9F;
+    --rule: rgba(27, 34, 54, 0.08);
+    --rule-strong: rgba(27, 34, 54, 0.15);
+    --surface: #FFFFFF;
+    --accent: #1A6B5C;
+    --accent-soft: #E4EFEC;
+    --warning: #8B5A1F;
+
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    font-optical-sizing: auto;
+  }
+
+  /* ============ TOP NAV ============ */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 48px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .nav-center {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--ink-mute);
+  }
+  .progress-dots { display: flex; gap: 6px; }
+  .progress-dots .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    border: 1px solid var(--ink-fade);
+  }
+  .progress-dots .dot.done { background: var(--ink); border-color: var(--ink); }
+  .progress-dots .dot.current { background: var(--accent); border-color: var(--accent); }
+  .nav-right { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--paper-3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500;
+    font-family: var(--font-mono);
+  }
+
+  /* ============ MOCKUP TABS ============ */
+  .mockup-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    padding: 14px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    position: sticky;
+    top: 65px;
+    z-index: 9;
+  }
+  .mockup-tabs button {
+    background: none;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-mute);
+    cursor: pointer;
+    padding: 6px 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.01em;
+  }
+  .mockup-tabs button:hover { color: var(--ink); }
+  .mockup-tabs button.active {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+    font-weight: 500;
+  }
+
+  .screen { display: none; padding: 56px 48px 80px; }
+  .screen.active { display: block; }
+
+  /* ============ CASE PLAYER ============ */
+  .case-container { max-width: 720px; margin: 0 auto; }
+
+  .patient-chart {
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 22px 26px;
+    margin-bottom: 56px;
+    position: relative;
+  }
+  .patient-chart-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .patient-summary {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    font-weight: 400;
+  }
+  .vitals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-fade);
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    letter-spacing: 0.05em;
+  }
+  .vital strong {
+    color: var(--ink);
+    font-weight: 500;
+    font-size: 12px;
+    margin-left: 4px;
+  }
+
+  .stage-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--ink-fade);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .case-question {
+    font-family: var(--font-serif);
+    font-size: 34px;
+    line-height: 1.2;
+    font-weight: 400;
+    margin-bottom: 36px;
+    letter-spacing: -0.01em;
+  }
+
+  .choices {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--rule);
+  }
+  .choice {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    padding: 18px 16px 18px 14px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+  }
+  .choice::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .choice:hover { background: var(--paper-2); }
+  .choice:hover::before { background: var(--accent); }
+  .choice.selected { background: var(--accent-soft); }
+  .choice.selected::before { background: var(--accent); }
+
+  .choice-letter {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-fade);
+    width: 14px;
+    flex-shrink: 0;
+  }
+  .choice.selected .choice-letter { color: var(--accent); font-weight: 500; }
+  .choice-text {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  .response {
+    margin-top: 40px;
+    padding: 26px 32px;
+    background: var(--paper-2);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink);
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .response.show { display: block; }
+  .response-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 10px;
+    font-style: normal;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .continue-row {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 32px;
+  }
+  .continue-row.show { display: flex; animation: fadeIn 0.3s ease 0.1s both; }
+  .score-earned {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.05em;
+  }
+  .score-earned strong {
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .continue-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 13px 24px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    font-weight: 400;
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .continue-btn:hover { background: var(--accent); }
+
+  /* ============ LIBRARY ============ */
+  .library-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 80px;
+  }
+  .library-toc {
+    font-size: 13px;
+    position: sticky;
+    top: 130px;
+    align-self: start;
+  }
+  .library-toc-heading {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+    margin-bottom: 18px;
+  }
+  .library-toc ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .library-toc a {
+    color: var(--ink-mute);
+    text-decoration: none;
+    padding: 6px 0 6px 14px;
+    display: block;
+    border-left: 1px solid transparent;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .library-toc a.current {
+    color: var(--ink);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+  .library-toc a:hover { color: var(--ink); }
+
+  .article { max-width: 640px; }
+  .article-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 20px;
+  }
+  .article-title {
+    font-family: var(--font-serif);
+    font-size: 52px;
+    line-height: 1.05;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    margin-bottom: 28px;
+  }
+  .article-dek {
+    font-family: var(--font-serif);
+    font-size: 21px;
+    line-height: 1.5;
+    color: var(--ink-mute);
+    font-style: italic;
+    margin-bottom: 56px;
+    font-weight: 300;
+  }
+  .article p {
+    font-size: 17px;
+    line-height: 1.75;
+    margin-bottom: 22px;
+    color: var(--ink);
+  }
+  .article p:first-letter {
+    /* subtle: nothing crazy, but a hint of editorial */
+  }
+  .article h2 {
+    font-family: var(--font-serif);
+    font-size: 26px;
+    font-weight: 500;
+    margin-top: 56px;
+    margin-bottom: 18px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .article ul { margin: 0 0 22px 0; padding-left: 24px; }
+  .article li {
+    font-size: 17px;
+    line-height: 1.8;
+    margin-bottom: 4px;
+  }
+  .pullquote {
+    margin: 40px 0;
+    padding: 4px 0 4px 28px;
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .pullquote .source {
+    display: block;
+    font-style: normal;
+    font-size: 13px;
+    color: var(--ink-mute);
+    margin-top: 8px;
+    font-family: var(--font-sans);
+  }
+  .related-cases {
+    margin-top: 72px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+  .related-cases-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 18px;
+  }
+  .related-case {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    cursor: pointer;
+    transition: padding 0.15s;
+  }
+  .related-case:hover { padding-left: 8px; }
+  .related-case:last-child { border-bottom: none; }
+  .related-case-title { font-family: var(--font-serif); font-size: 18px; }
+  .related-case-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.05em;
+  }
+
+  /* ============ EDITOR ============ */
+  .editor-layout {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 56px;
+  }
+  .editor-sidebar { font-size: 13px; }
+  .editor-sidebar-section { margin-bottom: 36px; }
+  .editor-sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+    margin-bottom: 14px;
+  }
+  .editor-meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .editor-meta-row .key { color: var(--ink-mute); }
+  .editor-meta-row .val { color: var(--ink); font-weight: 500; font-family: var(--font-mono); font-size: 12px; }
+  .level-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .level-check input { accent-color: var(--accent); width: 14px; height: 14px; }
+
+  .editor-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .editor-title {
+    font-family: var(--font-serif);
+    font-size: 38px;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .editor-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .editor-status::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .editor-subtitle {
+    color: var(--ink-mute);
+    font-size: 14px;
+    margin-bottom: 44px;
+    font-family: var(--font-serif);
+    font-style: italic;
+  }
+
+  .stage-card {
+    border: 1px solid var(--rule-strong);
+    margin-bottom: 8px;
+    background: var(--surface);
+    border-radius: 2px;
+    transition: border-color 0.15s;
+  }
+  .stage-card:hover:not(.open) { border-color: var(--ink-fade); }
+  .stage-card.open { border-color: var(--accent); }
+
+  .stage-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 22px;
+    cursor: pointer;
+  }
+  .stage-card.open .stage-header { border-bottom: 1px solid var(--rule); }
+
+  .stage-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-fade);
+    width: 24px;
+    letter-spacing: 0.05em;
+  }
+  .stage-type {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 4px 9px;
+    background: var(--accent-soft);
+    border-radius: 2px;
+    font-weight: 500;
+  }
+  .stage-prompt-preview {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    flex: 1;
+    color: var(--ink);
+  }
+  .stage-meta-preview {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-fade);
+    letter-spacing: 0.05em;
+  }
+
+  .stage-body {
+    padding: 28px;
+    display: none;
+    background: var(--paper);
+  }
+  .stage-card.open .stage-body { display: block; }
+
+  .field-group { margin-bottom: 28px; }
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 10px;
+    display: block;
+  }
+  .field-input {
+    width: 100%;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface);
+    padding: 12px 14px;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    color: var(--ink);
+    border-radius: 2px;
+  }
+  .field-input:focus { outline: none; border-color: var(--accent); }
+
+  .choices-table {
+    border: 1px solid var(--rule-strong);
+    background: var(--surface);
+    border-radius: 2px;
+  }
+  .choice-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 80px 24px;
+    gap: 14px;
+    padding: 12px 16px;
+    align-items: center;
+    border-bottom: 1px solid var(--rule);
+  }
+  .choice-row:last-child { border-bottom: none; }
+  .choice-row .letter {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-fade);
+  }
+  .choice-row input[type="text"] {
+    border: none;
+    background: transparent;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    color: var(--ink);
+    width: 100%;
+    padding: 4px 0;
+  }
+  .choice-row input[type="text"]:focus { outline: none; }
+  .score-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  .choice-row input[type="number"] {
+    border: 1px solid var(--rule);
+    padding: 4px 8px;
+    width: 44px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: center;
+    border-radius: 2px;
+    background: var(--paper);
+  }
+  .choice-row input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  .drag-handle {
+    color: var(--ink-fade);
+    font-size: 14px;
+    cursor: grab;
+    user-select: none;
+    line-height: 1;
+  }
+  .response-textarea {
+    width: 100%;
+    border: 1px solid var(--rule);
+    background: var(--paper-2);
+    padding: 12px 14px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.55;
+    min-height: 70px;
+    resize: vertical;
+    border-radius: 2px;
+  }
+  .response-textarea:focus { outline: none; border-color: var(--accent); }
+
+  .field-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-fade);
+    letter-spacing: 0.05em;
+    margin-left: 8px;
+    text-transform: uppercase;
+  }
+
+  .add-stage {
+    margin-top: 12px;
+    padding: 16px 22px;
+    border: 1px dashed var(--rule-strong);
+    background: transparent;
+    color: var(--ink-mute);
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .add-stage:hover { border-color: var(--accent); color: var(--accent); }
+
+  .footer-note {
+    max-width: 720px;
+    margin: 100px auto 40px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+  }
+
+  @media (max-width: 900px) {
+    .nav { padding: 18px 24px; }
+    .nav-center { display: none; }
+    .screen { padding: 32px 24px 60px; }
+    .library-layout, .editor-layout { grid-template-columns: 1fr; gap: 32px; }
+    .library-toc, .editor-sidebar { position: static; }
+    .article-title { font-size: 36px; }
+    .case-question { font-size: 26px; }
+    .editor-title { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="logo"><span class="logo-dot"></span>Femi</div>
+  <div class="nav-center">
+    <span>Period 3 · Undergrad</span>
+    <div class="progress-dots">
+      <span class="dot done"></span>
+      <span class="dot done"></span>
+      <span class="dot current"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+    <span>Case 3 of 12</span>
+  </div>
+  <div class="nav-right">
+    <span>Maya Chen</span>
+    <div class="avatar">MC</div>
+  </div>
+</nav>
+
+<div class="mockup-tabs">
+  <button class="active" data-screen="case">Case player</button>
+  <button data-screen="library">Library</button>
+  <button data-screen="editor">Case editor · admin</button>
+</div>
+
+<!-- ============ CASE PLAYER ============ -->
+<section class="screen active" id="case">
+  <div class="case-container">
+    <div class="patient-chart">
+      <div class="patient-chart-label">Patient</div>
+      <div class="patient-summary">56-year-old man, presenting to the emergency department with sudden onset chest pain that began thirty minutes ago.</div>
+      <div class="vitals">
+        <span class="vital">BP<strong>142/88</strong></span>
+        <span class="vital">HR<strong>96</strong></span>
+        <span class="vital">RR<strong>20</strong></span>
+        <span class="vital">T<strong>37.2°C</strong></span>
+        <span class="vital">SpO₂<strong>97%</strong></span>
+      </div>
+    </div>
+
+    <div class="stage-label">History · Question 2 of 4</div>
+    <h1 class="case-question">What do you want to ask next?</h1>
+
+    <div class="choices">
+      <div class="choice" data-response="The pain started suddenly, without warning, while I was sitting on the couch watching TV." data-score="2">
+        <span class="choice-letter">A</span>
+        <span class="choice-text">When did the pain start?</span>
+      </div>
+      <div class="choice" data-response="It's centered right here in the middle of my chest. It's radiating down my left arm." data-score="3">
+        <span class="choice-letter">B</span>
+        <span class="choice-text">Where exactly do you feel the pain?</span>
+      </div>
+      <div class="choice" data-response="It's been about thirty minutes. It hasn't let up at all." data-score="1">
+        <span class="choice-letter">C</span>
+        <span class="choice-text">How long have you had this pain?</span>
+      </div>
+      <div class="choice" data-response="It feels like a heavy weight pressing down on my chest. Crushing." data-score="3">
+        <span class="choice-letter">D</span>
+        <span class="choice-text">Can you describe what the pain feels like?</span>
+      </div>
+      <div class="choice" data-response="Yes — I feel really nauseous, I'm sweating a lot, and I'm a bit short of breath." data-score="3">
+        <span class="choice-letter">E</span>
+        <span class="choice-text">Are you having any other symptoms — like nausea or sweating?</span>
+      </div>
+      <div class="choice" data-response="Nothing seems to change it. I tried sitting up, lying down, breathing differently. It just stays the same." data-score="2">
+        <span class="choice-letter">F</span>
+        <span class="choice-text">Does anything make the pain better or worse?</span>
+      </div>
+    </div>
+
+    <div class="response" id="response">
+      <div class="response-label">Patient</div>
+      <div id="response-text"></div>
+    </div>
+
+    <div class="continue-row" id="continue-row">
+      <div class="score-earned"><strong id="earned-score">+3</strong> points · stage score so far: 5 / 9</div>
+      <button class="continue-btn">Continue →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LIBRARY ============ -->
+<section class="screen" id="library">
+  <div class="library-layout">
+    <aside class="library-toc">
+      <div class="library-toc-heading">Diagnoses</div>
+      <ul>
+        <li><a href="#">Appendicitis</a></li>
+        <li><a href="#">Asthma exacerbation</a></li>
+        <li><a href="#">Diabetic ketoacidosis</a></li>
+        <li><a href="#">Gastroenteritis</a></li>
+        <li><a href="#">Migraine</a></li>
+        <li><a href="#" class="current">Myocardial infarction</a></li>
+        <li><a href="#">Pneumonia</a></li>
+        <li><a href="#">Pulmonary embolism</a></li>
+        <li><a href="#">Sepsis</a></li>
+        <li><a href="#">Stroke · ischemic</a></li>
+        <li><a href="#">Tension headache</a></li>
+        <li><a href="#">Urinary tract infection</a></li>
+      </ul>
+    </aside>
+
+    <article class="article">
+      <div class="article-eyebrow">Clinical reference · Cardiology</div>
+      <h1 class="article-title">Myocardial infarction</h1>
+      <p class="article-dek">A heart attack happens when blood flow to part of the heart muscle is suddenly cut off — usually by a blood clot in a coronary artery. The longer the muscle goes without oxygen, the more damage occurs. Minutes matter.</p>
+
+      <h2>How it presents</h2>
+      <p>The classic picture is a middle-aged or older patient describing sudden, crushing chest pain in the center of the chest that may radiate down the left arm or up into the jaw. Many describe a heavy weight pressing on them. The pain typically doesn't change with position, breathing, or rest.</p>
+      <p>Look for accompanying symptoms — nausea, sweating, shortness of breath, and a sense of impending doom. These are common but not universal. Women, older adults, and people with diabetes often present with much subtler symptoms, which is part of why so many heart attacks are missed.</p>
+
+      <div class="pullquote">
+        "It feels like a weight on my chest."
+        <span class="source">— A patient's own description is often more useful than any single vital sign.</span>
+      </div>
+
+      <h2>Initial workup</h2>
+      <p>The two most important early steps are an electrocardiogram within ten minutes of arrival, and a serum troponin level. ST-segment elevation on the ECG suggests a STEMI and triggers emergent reperfusion. A non-ST elevation MI is identified by elevated troponin without that telltale ST elevation.</p>
+      <ul>
+        <li>12-lead ECG within 10 minutes</li>
+        <li>Troponin, repeated at intervals</li>
+        <li>Chest X-ray to rule out other causes</li>
+        <li>Basic metabolic panel, CBC, coagulation studies</li>
+      </ul>
+
+      <h2>Immediate management</h2>
+      <p>Time is muscle. Standard initial treatment includes aspirin, oxygen if hypoxic, nitroglycerin for ongoing pain, and pain control with morphine if needed. For a STEMI, emergent percutaneous coronary intervention is the gold standard — ideally within 90 minutes of first medical contact.</p>
+
+      <div class="related-cases">
+        <div class="related-cases-label">Featured in these cases</div>
+        <div class="related-case">
+          <span class="related-case-title">Chest pain · 56-year-old man</span>
+          <span class="related-case-meta">Undergrad · 7 stages</span>
+        </div>
+        <div class="related-case">
+          <span class="related-case-title">Shortness of breath · 72-year-old woman</span>
+          <span class="related-case-meta">Undergrad · 6 stages</span>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section class="screen" id="editor">
+  <div class="editor-layout">
+    <aside class="editor-sidebar">
+      <div class="editor-sidebar-section">
+        <div class="editor-sidebar-label">Case</div>
+        <div class="editor-meta-row"><span class="key">ID</span><span class="val">case_03</span></div>
+        <div class="editor-meta-row"><span class="key">Stages</span><span class="val">7</span></div>
+        <div class="editor-meta-row"><span class="key">Created</span><span class="val">Apr 14</span></div>
+        <div class="editor-meta-row"><span class="key">Attempts</span><span class="val">142</span></div>
+      </div>
+
+      <div class="editor-sidebar-section">
+        <div class="editor-sidebar-label">Levels</div>
+        <label class="level-check"><input type="checkbox"> Middle school</label>
+        <label class="level-check"><input type="checkbox"> High school</label>
+        <label class="level-check"><input type="checkbox" checked> Undergraduate</label>
+      </div>
+
+      <div class="editor-sidebar-section">
+        <div class="editor-sidebar-label">Stages enabled</div>
+        <label class="level-check"><input type="checkbox" checked> History</label>
+        <label class="level-check"><input type="checkbox" checked> Physical exam</label>
+        <label class="level-check"><input type="checkbox" checked> Diagnosis</label>
+        <label class="level-check"><input type="checkbox" checked> Disposition</label>
+        <label class="level-check"><input type="checkbox" checked> Treatment</label>
+      </div>
+
+      <div class="editor-sidebar-section">
+        <div class="editor-sidebar-label">Linked diagnosis</div>
+        <div style="font-family: var(--font-serif); font-size: 15px; padding: 6px 0; color: var(--ink);">Myocardial infarction</div>
+        <div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-fade); letter-spacing: 0.05em;">→ links from feedback page</div>
+      </div>
+    </aside>
+
+    <div class="editor-main">
+      <div class="editor-title-row">
+        <h1 class="editor-title">Chest pain · 56-year-old man</h1>
+        <div class="editor-status">Published</div>
+      </div>
+      <p class="editor-subtitle">A 56-year-old man suddenly develops severe central chest pain at rest…</p>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">01</span>
+          <span class="stage-type">History</span>
+          <span class="stage-prompt-preview">What do you want to ask first?</span>
+          <span class="stage-meta-preview">6 choices · 1 pick</span>
+        </div>
+      </div>
+
+      <div class="stage-card open">
+        <div class="stage-header">
+          <span class="stage-num">02</span>
+          <span class="stage-type">History</span>
+          <span class="stage-prompt-preview">What do you want to ask next?</span>
+          <span class="stage-meta-preview">6 choices · 1 pick</span>
+        </div>
+        <div class="stage-body">
+          <div class="field-group">
+            <label class="field-label">Prompt</label>
+            <input class="field-input" value="What do you want to ask next?" />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Choices <span class="field-hint">scores 0–3</span></label>
+            <div class="choices-table">
+              <div class="choice-row">
+                <span class="letter">A</span>
+                <input type="text" value="When did the pain start?" />
+                <div class="score-input"><input type="number" value="2" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+              <div class="choice-row">
+                <span class="letter">B</span>
+                <input type="text" value="Where exactly do you feel the pain?" />
+                <div class="score-input"><input type="number" value="3" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+              <div class="choice-row">
+                <span class="letter">C</span>
+                <input type="text" value="How long have you had this pain?" />
+                <div class="score-input"><input type="number" value="1" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+              <div class="choice-row">
+                <span class="letter">D</span>
+                <input type="text" value="Can you describe what the pain feels like?" />
+                <div class="score-input"><input type="number" value="3" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+              <div class="choice-row">
+                <span class="letter">E</span>
+                <input type="text" value="Are you having any other symptoms?" />
+                <div class="score-input"><input type="number" value="3" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+              <div class="choice-row">
+                <span class="letter">F</span>
+                <input type="text" value="Does anything make the pain better or worse?" />
+                <div class="score-input"><input type="number" value="2" min="0" max="3" /></div>
+                <span class="drag-handle">⋮⋮</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Response · choice B</label>
+            <textarea class="response-textarea">It's centered right here in the middle of my chest. It's radiating down my left arm.</textarea>
+          </div>
+
+          <div class="field-group" style="display: flex; gap: 32px;">
+            <div>
+              <label class="field-label">Max picks</label>
+              <input class="field-input" value="1" style="width: 80px;" />
+            </div>
+            <div>
+              <label class="field-label">Image</label>
+              <button style="background: transparent; border: 1px dashed var(--rule-strong); padding: 11px 16px; font-family: var(--font-sans); font-size: 13px; color: var(--ink-mute); cursor: pointer; border-radius: 2px;">+ Attach image</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">03</span>
+          <span class="stage-type">History</span>
+          <span class="stage-prompt-preview">What do you want to ask next?</span>
+          <span class="stage-meta-preview">5 choices · 1 pick</span>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">04</span>
+          <span class="stage-type">Exam</span>
+          <span class="stage-prompt-preview">What do you want to examine?</span>
+          <span class="stage-meta-preview">6 choices · 2 picks</span>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">05</span>
+          <span class="stage-type">Diagnosis</span>
+          <span class="stage-prompt-preview">What is the most likely diagnosis?</span>
+          <span class="stage-meta-preview">4 choices · binary</span>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">06</span>
+          <span class="stage-type">Disposition</span>
+          <span class="stage-prompt-preview">Where should you send this patient?</span>
+          <span class="stage-meta-preview">3 choices · binary</span>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-header">
+          <span class="stage-num">07</span>
+          <span class="stage-type">Treatment</span>
+          <span class="stage-prompt-preview">What is your initial treatment plan?</span>
+          <span class="stage-meta-preview">5 choices · scored</span>
+        </div>
+      </div>
+
+      <button class="add-stage">+ Add stage</button>
+    </div>
+  </div>
+</section>
+
+<div class="footer-note">Femi Medical · design direction · not functional</div>
+
+<script>
+  // Tab navigation
+  document.querySelectorAll('.mockup-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.screen;
+      document.querySelectorAll('.mockup-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(target).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  });
+
+  // Case player interaction
+  document.querySelectorAll('.choice').forEach(choice => {
+    choice.addEventListener('click', () => {
+      document.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+      choice.classList.add('selected');
+      const response = choice.dataset.response;
+      const score = choice.dataset.score;
+      document.getElementById('response-text').textContent = response;
+      document.getElementById('earned-score').textContent = '+' + score;
+      document.getElementById('response').classList.add('show');
+      document.getElementById('continue-row').classList.add('show');
+    });
+  });
+
+  // Editor stage expand/collapse
+  document.querySelectorAll('.stage-header').forEach(header => {
+    header.addEventListener('click', () => {
+      header.parentElement.classList.toggle('open');
+    });
+  });
+</script>
+
+</body>
+</html>
