@@ -17,6 +17,7 @@ export interface CaseListRow {
   title: string;
   linkedDiagnosisSlug: string | null;
   createdAt: Date;
+  publishedAt: Date | null;
   stageCount: number;
   attemptCount: number;
   levels: string[];
@@ -32,6 +33,7 @@ export async function listCases(): Promise<CaseListRow[]> {
       title: cases.title,
       linkedDiagnosisSlug: cases.linkedDiagnosisSlug,
       createdAt: cases.createdAt,
+      publishedAt: cases.publishedAt,
       stageCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${stages} WHERE ${stages.caseId} = ${cases.id}
       )`,

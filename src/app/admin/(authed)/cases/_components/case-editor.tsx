@@ -414,7 +414,7 @@ export function CaseEditor({
                   ? "Creating…"
                   : "Saving…"
                 : mode === "create"
-                  ? "Publish case"
+                  ? "Create as draft →"
                   : "Save changes"}
             </button>
           </div>
