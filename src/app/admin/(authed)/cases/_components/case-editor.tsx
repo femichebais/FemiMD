@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useState, useTransition } from "react";
+import { useEffect, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { StageType } from "../actions";
 import { createCase, updateCaseText } from "../actions";
@@ -12,6 +12,10 @@ import {
 } from "./draft-reducer";
 import { CaseEditorSidebar } from "./case-editor-sidebar";
 import { StageCard } from "./stage-card";
+
+// Single localStorage key for the in-progress create draft. We only persist
+// the create mode — edit mode already has DB state to fall back on.
+const DRAFT_STORAGE_KEY = "femi:case-draft:new:v1";
 
 export interface CaseEditorProps {
   mode: "create" | "edit";
@@ -52,9 +56,75 @@ export function CaseEditor({
   );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [restoredAt, setRestoredAt] = useState<Date | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const locked = mode === "edit";
+
+  // Tracks whether we've finished the initial restore so the auto-save
+  // effect doesn't immediately overwrite a fresh draft with the empty
+  // initial state on mount.
+  const restoreSettled = useRef(false);
+
+  // Restore-on-mount (create mode only). If a draft exists in localStorage,
+  // load it into the reducer; show a small "restored" indicator so admin
+  // knows their previous work is back.
+  useEffect(() => {
+    if (mode !== "create") {
+      restoreSettled.current = true;
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { draft: ClientCase; savedAt: string };
+        if (parsed?.draft) {
+          dispatch({ type: "REPLACE_DRAFT", draft: parsed.draft });
+          setRestoredAt(new Date(parsed.savedAt));
+        }
+      }
+    } catch (err) {
+      // Bad shape in localStorage — just ignore and start fresh.
+      console.warn("[case-editor] couldn't restore draft:", err);
+    } finally {
+      restoreSettled.current = true;
+    }
+  }, [mode]);
+
+  // Auto-save the draft to localStorage on every change (debounced 500ms).
+  // Only runs in create mode and only after the initial restore has
+  // settled — otherwise mount-time would clobber the restored value.
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (!restoreSettled.current) return;
+    const id = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          JSON.stringify({ draft, savedAt: new Date().toISOString() })
+        );
+      } catch (err) {
+        console.warn("[case-editor] couldn't save draft:", err);
+      }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [draft, mode]);
+
+  const discardDraft = () => {
+    if (
+      !confirm(
+        "Discard the current draft and start over? Anything you've typed will be lost."
+      )
+    )
+      return;
+    try {
+      window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {
+      // ignore — non-critical
+    }
+    dispatch({ type: "REPLACE_DRAFT", draft: emptyCase() });
+    setRestoredAt(null);
+  };
 
   const handleSubmit = () => {
     setError(null);
@@ -66,6 +136,13 @@ export function CaseEditor({
         if (!result.ok) {
           setError(result.error);
           return;
+        }
+        // Successful publish — wipe the localStorage draft so the next
+        // visit to /admin/cases/new starts fresh.
+        try {
+          window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+        } catch {
+          // ignore
         }
         router.push(`/admin/cases/${result.caseId}`);
       });
@@ -147,6 +224,30 @@ export function CaseEditor({
             {mode === "create" ? "Drafting" : "Published"}
           </span>
         </div>
+
+        {/* Draft-state banner — only in create mode, shows the auto-save
+            state and lets admin discard the in-progress draft. */}
+        {mode === "create" && (
+          <div className="flex items-center justify-between gap-3 mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade">
+            <span>
+              {restoredAt
+                ? `Restored from draft saved ${restoredAt.toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}`
+                : "Autosaves locally as you type"}
+            </span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="hover:text-[var(--warning)] transition-colors"
+            >
+              Discard draft
+            </button>
+          </div>
+        )}
 
         {/* Subtitle / scenario intro */}
         <textarea

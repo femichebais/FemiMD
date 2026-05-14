@@ -59,7 +59,13 @@ export default async function EditCasePage({ params }: EditCasePageProps) {
 
   return (
     <>
-      <div className="max-w-[1180px] mx-auto px-6 md:px-12 pt-8 flex justify-end">
+      <div className="max-w-[1180px] mx-auto px-6 md:px-12 pt-8 flex justify-end items-center gap-6">
+        <a
+          href={`/admin/cases/${id}/preview`}
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent transition-colors"
+        >
+          Preview case →
+        </a>
         <DeleteCaseButton id={id} title={data.case.title} />
       </div>
       <CaseEditor

@@ -39,6 +39,11 @@ export interface CasePlayerProps {
   caseData: Case;
   stages: Stage[];
   choices: Choice[];
+  // When true (admin preview), all server actions are skipped. The player
+  // works as a UI walkthrough — picks + responses + advance — but never
+  // creates a case_attempts row or persists stage_attempts. Final Continue
+  // navigates back to the editor instead of to a feedback page.
+  previewMode?: boolean;
 }
 
 export function CasePlayer({
@@ -46,6 +51,7 @@ export function CasePlayer({
   caseData,
   stages,
   choices,
+  previewMode = false,
 }: CasePlayerProps) {
   const router = useRouter();
   const [stageIndex, setStageIndex] = useState(0);
@@ -58,7 +64,13 @@ export function CasePlayer({
   // Start the attempt on mount. Doing this from useEffect (not the server
   // page render) means a hover-prefetch by Next won't create orphan rows;
   // only an actual visit triggers the insert.
+  // In preview mode we skip this entirely — no real attempt is created.
   useEffect(() => {
+    if (previewMode) {
+      // Use a sentinel value so interactionLocked logic doesn't gate clicks.
+      setAttemptId("preview");
+      return;
+    }
     let cancelled = false;
     (async () => {
       const result = await startCaseAttempt(caseId);
@@ -72,7 +84,7 @@ export function CasePlayer({
     return () => {
       cancelled = true;
     };
-  }, [caseId]);
+  }, [caseId, previewMode]);
 
   const stageLabels = useMemo(() => {
     const counts = new Map<Stage["type"], number>();
@@ -129,6 +141,18 @@ export function CasePlayer({
     if (!attemptId || isAdvancing) return;
     setStageError(null);
 
+    // Preview mode: advance through stages locally, never persist anything.
+    // Final Continue takes admin back to the editor.
+    if (previewMode) {
+      if (isLast) {
+        router.push(`/admin/cases/${caseId}`);
+        return;
+      }
+      setStageIndex((i) => i + 1);
+      setPicks([]);
+      return;
+    }
+
     const stageIdSnapshot = currentStage.id;
     const picksSnapshot = picks.map((p, i) => ({
       choiceId: p.choiceId,
@@ -177,6 +201,25 @@ export function CasePlayer({
   return (
     <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
       <div className="max-w-case mx-auto">
+        {previewMode && (
+          <div className="mb-8 -mt-2 flex items-center justify-between gap-4 px-4 py-3 bg-accent-soft border-l-2 border-accent rounded-[2px]">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+                Preview mode
+              </div>
+              <div className="font-serif italic text-[14px] text-ink-mute mt-1">
+                Picks aren&apos;t recorded. No attempt row is created.
+              </div>
+            </div>
+            <a
+              href={`/admin/cases/${caseId}`}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+            >
+              ← Back to editor
+            </a>
+          </div>
+        )}
+
         {caseData.scenarioIntro && (
           <PatientChart
             summary={caseData.scenarioIntro}
@@ -261,13 +304,17 @@ export function CasePlayer({
               onClick={handleContinue}
               disabled={interactionLocked}
             >
-              {isAdvancing
+              {previewMode
                 ? isLast
-                  ? "Finishing…"
-                  : "Saving…"
-                : isLast
-                  ? "Finish case →"
-                  : "Continue →"}
+                  ? "End preview →"
+                  : "Continue →"
+                : isAdvancing
+                  ? isLast
+                    ? "Finishing…"
+                    : "Saving…"
+                  : isLast
+                    ? "Finish case →"
+                    : "Continue →"}
             </Button>
           </div>
         )}

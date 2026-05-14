@@ -45,7 +45,9 @@ export type DraftAction =
       stageId: string;
       choiceId: string;
       value: string;
-    };
+    }
+  // Replaces the entire draft. Used by localStorage restore on mount.
+  | { type: "REPLACE_DRAFT"; draft: ClientCase };
 
 let tempIdSeq = 0;
 function nextTempId(prefix: string): string {
@@ -252,6 +254,9 @@ export function draftReducer(
         ...c,
         responseText: action.value,
       }));
+
+    case "REPLACE_DRAFT":
+      return action.draft;
 
     default:
       return state;
