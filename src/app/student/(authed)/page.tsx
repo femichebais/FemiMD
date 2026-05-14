@@ -35,12 +35,20 @@ export default async function StudentDashboard() {
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
           Cases for you.
         </h1>
-        <Link
-          href="/student/progress"
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
-        >
-          Full progress →
-        </Link>
+        <div className="flex items-center gap-5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+          <Link
+            href="/student/quizzes"
+            className="hover:text-ink transition-colors"
+          >
+            Quizzes →
+          </Link>
+          <Link
+            href="/student/progress"
+            className="hover:text-ink transition-colors"
+          >
+            Full progress →
+          </Link>
+        </div>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Work through these at your own pace. A case is complete when you

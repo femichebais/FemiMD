@@ -77,6 +77,7 @@ export default async function StudentQuizPage({ params }: PageProps) {
       caseTitle={caseRow.title}
       scope={scope}
       quizId={quizId}
+      quizTitle={`${caseRow.title} · ${scope === "pre" ? "Pre-test" : "Post-test"}`}
       questions={questions}
     />
   );

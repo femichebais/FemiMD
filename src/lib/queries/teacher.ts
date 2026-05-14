@@ -10,6 +10,8 @@ import {
   stageAttempts,
   stages,
   quizAttempts,
+  quizzes,
+  quizReleases,
   type Stage,
 } from "@/db/schema";
 
@@ -73,6 +75,16 @@ export interface ClassroomDetail {
     title: string;
     isReleased: boolean;
     releasedAt: Date | null;
+  }>;
+  // All quizzes on the platform (case-attached + standalone) — for the
+  // teacher to toggle quiz releases independently of case releases.
+  availableQuizzes: Array<{
+    id: string;
+    title: string;
+    topic: string | null;
+    scope: "pre" | "post" | null;
+    caseTitle: string | null;
+    isReleased: boolean;
   }>;
   topline: {
     studentCount: number;
@@ -140,6 +152,26 @@ export async function getClassroomDetail(
     )
     .orderBy(asc(students.name));
 
+  // All quizzes — case-attached + standalone — with this classroom's
+  // release state. Teachers release quizzes independently of case releases.
+  const availableQuizzes = await db
+    .select({
+      id: quizzes.id,
+      title: quizzes.title,
+      topic: quizzes.topic,
+      scope: quizzes.scope,
+      caseTitle: cases.title,
+      isReleased: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${quizReleases}
+        WHERE ${quizReleases.classroomId} = ${classroomId}
+          AND ${quizReleases.quizId} = ${quizzes.id}
+      )`,
+    })
+    .from(quizzes)
+    .leftJoin(cases, eq(cases.id, quizzes.caseId))
+    .where(isNull(quizzes.deletedAt))
+    .orderBy(asc(quizzes.title));
+
   // Cases at this level + release status
   const availableCases = await db
     .select({
@@ -196,6 +228,7 @@ export async function getClassroomDetail(
           : Number(r.avgScore),
     })),
     availableCases,
+    availableQuizzes,
     topline: {
       studentCount,
       releasedCaseCount,

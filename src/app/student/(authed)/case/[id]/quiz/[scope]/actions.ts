@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
 import { quizAttempts } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
-import { getCaseForStudent } from "@/lib/queries/student-cases";
 import { getChoicesForGrading } from "@/lib/queries/quiz";
+import { accessibleQuizIds } from "@/lib/queries/student-quizzes";
 
 export type QuizScope = "pre" | "post";
 
@@ -32,23 +32,28 @@ export type SubmitQuizResult =
   | { ok: false; error: string };
 
 export async function submitQuizAttempt(args: {
-  caseId: string;
-  scope: QuizScope;
+  // Primary access key — required.
   quizId: string;
+  // Only set for case-attached pre/post tests. We still record them on
+  // quiz_attempts so the "is the case completed?" check (which queries
+  // case_id+scope) keeps working.
+  caseId?: string;
+  scope?: QuizScope;
   answers: QuizAnswerInput[];
 }): Promise<SubmitQuizResult> {
   const { user } = await requireRole("student");
 
-  if (args.scope !== "pre" && args.scope !== "post") {
-    return { ok: false, error: "Invalid scope." };
-  }
   if (args.answers.length === 0) {
     return { ok: false, error: "No answers submitted." };
   }
 
-  // Access check — student must own this case via classroom + release + level.
-  const access = await getCaseForStudent(user.id, args.caseId);
-  if (!access) return { ok: false, error: "Case not available." };
+  // Unified access check via the quiz-id-set union (classroom release +
+  // admin grant + inherited from case access). Same logic the list view
+  // uses, so the take page and submit can't disagree.
+  const accessible = await accessibleQuizIds(user.id);
+  if (!accessible.has(args.quizId)) {
+    return { ok: false, error: "Quiz not available." };
+  }
 
   // Grade server-side using the DB's is_correct values. Don't trust the
   // client to compute correctness or send a score.
@@ -83,20 +88,15 @@ export async function submitQuizAttempt(args: {
   const score = graded.filter((g) => g.isCorrect).length;
   const total = graded.length;
 
-  // Record. The answers jsonb captures the picked choice id per question
-  // so a teacher drilling down can replay the session — even if a question
-  // is later edited or deleted.
   let attemptId = "";
   try {
     const [row] = await db
       .insert(quizAttempts)
       .values({
         studentId: user.id,
-        // quiz_id is the new primary linkage; case_id + scope kept so the
-        // existing "case completed" check (case has post-quiz) keeps working.
         quizId: args.quizId,
-        caseId: args.caseId,
-        scope: args.scope,
+        caseId: args.caseId ?? null,
+        scope: args.scope ?? null,
         questionCount: total,
         score,
         answers: graded.map((g) => ({
@@ -113,8 +113,9 @@ export async function submitQuizAttempt(args: {
   }
 
   // Post-test completion may flip "case is officially completed" on the
-  // student dashboard — invalidate it so the next visit reflects that.
+  // dashboard — invalidate so the next visit reflects that.
   revalidatePath("/student");
+  revalidatePath("/student/quizzes");
 
   return { ok: true, attemptId, score, total, graded };
 }

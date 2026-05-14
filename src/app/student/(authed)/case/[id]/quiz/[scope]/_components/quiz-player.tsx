@@ -23,10 +23,13 @@ interface GradedState {
 }
 
 export interface QuizPlayerProps {
-  caseId: string;
-  caseTitle: string;
-  scope: QuizScope;
+  // Required: the quiz itself + display name. Case-related props are
+  // optional and only set when the quiz is case-attached (pre/post test).
   quizId: string;
+  quizTitle: string;
+  caseId?: string;
+  caseTitle?: string;
+  scope?: QuizScope;
   questions: QuestionWithChoices[];
 }
 
@@ -35,6 +38,7 @@ export function QuizPlayer({
   caseTitle,
   scope,
   quizId,
+  quizTitle,
   questions,
 }: QuizPlayerProps) {
   const router = useRouter();
@@ -50,9 +54,9 @@ export function QuizPlayer({
     setError(null);
     startSubmit(async () => {
       const result = await submitQuizAttempt({
+        quizId,
         caseId,
         scope,
-        quizId,
         answers: questions.map((q) => ({
           questionId: q.question.id,
           choiceId: picks.get(q.question.id)!,
@@ -82,7 +86,7 @@ export function QuizPlayer({
     <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
       <div className="max-w-case mx-auto">
         <StageLabel className="mb-5">
-          {SCOPE_LABEL[scope]} · {caseTitle}
+          {scope ? `${SCOPE_LABEL[scope]} · ${caseTitle ?? quizTitle}` : quizTitle}
         </StageLabel>
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
           {graded

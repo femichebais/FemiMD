@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { classrooms, caseReleases } from "@/db/schema";
+import { classrooms, caseReleases, quizReleases } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 
 export type ToggleResult = { ok: true } | { ok: false; error: string };
@@ -56,6 +56,58 @@ export async function toggleCaseRelease(args: {
     }
   } catch (err) {
     console.error("[teacher/toggleCaseRelease]", err);
+    return { ok: false, error: "Could not update release." };
+  }
+
+  revalidatePath(`/teacher/classroom/${args.classroomId}`);
+  return { ok: true };
+}
+
+// Quiz-release toggle — independent of case releases. Same shape as the
+// case version: insert on release, delete on unrelease, ownership-checked.
+export async function toggleQuizRelease(args: {
+  classroomId: string;
+  quizId: string;
+  release: boolean;
+}): Promise<ToggleResult> {
+  const { user } = await requireRole("teacher");
+
+  const [classroom] = await db
+    .select({ id: classrooms.id })
+    .from(classrooms)
+    .where(
+      and(
+        eq(classrooms.id, args.classroomId),
+        eq(classrooms.teacherId, user.id),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!classroom) return { ok: false, error: "Classroom not found." };
+
+  try {
+    if (args.release) {
+      try {
+        await db
+          .insert(quizReleases)
+          .values({ classroomId: args.classroomId, quizId: args.quizId });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/duplicate|unique/i.test(msg)) throw err;
+      }
+    } else {
+      await db
+        .delete(quizReleases)
+        .where(
+          and(
+            eq(quizReleases.classroomId, args.classroomId),
+            eq(quizReleases.quizId, args.quizId)
+          )
+        );
+    }
+  } catch (err) {
+    console.error("[teacher/toggleQuizRelease]", err);
     return { ok: false, error: "Could not update release." };
   }
 

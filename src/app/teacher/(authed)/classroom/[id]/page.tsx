@@ -5,6 +5,7 @@ import { StageLabel } from "@/components/ui";
 import { requireRole } from "@/lib/auth/current-user";
 import { getClassroomDetail } from "@/lib/queries/teacher";
 import { ReleaseToggle } from "./_components/release-toggle";
+import { QuizReleaseToggle } from "./_components/quiz-release-toggle";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
@@ -29,7 +30,8 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
   const proto = host.startsWith("localhost") ? "http" : "https";
   const inviteUrl = `${proto}://${host}/invite/${detail.classroom.inviteCode}`;
 
-  const { classroom, roster, availableCases, topline } = detail;
+  const { classroom, roster, availableCases, availableQuizzes, topline } =
+    detail;
 
   return (
     <main className="max-w-[1100px] mx-auto px-6 md:px-12 py-10 md:py-14">
@@ -169,6 +171,41 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                   classroomId={id}
                   caseId={c.id}
                   initialReleased={c.isReleased}
+                />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Quizzes — releasable independently of cases. Includes case-attached
+          pre/post tests + standalone quizzes admin authored. */}
+      <StageLabel className="mb-5 mt-14">Quizzes</StageLabel>
+      {availableQuizzes.length === 0 ? (
+        <p className="font-serif italic text-[16px] text-ink-mute">
+          No quizzes available yet. Admin can author them from{" "}
+          <code className="font-mono text-[12px]">/admin/quizzes</code>.
+        </p>
+      ) : (
+        <ul>
+          {availableQuizzes.map((q) => (
+            <li
+              key={q.id}
+              className="grid grid-cols-[1fr_140px_140px] items-center gap-6 py-4 border-b border-rule"
+            >
+              <span className="font-serif text-[17px] text-ink">
+                {q.title}
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                {q.caseTitle
+                  ? `${q.scope === "pre" ? "Pre" : q.scope === "post" ? "Post" : ""} · ${q.caseTitle}`
+                  : (q.topic ?? "standalone")}
+              </span>
+              <span className="justify-self-end">
+                <QuizReleaseToggle
+                  classroomId={id}
+                  quizId={q.id}
+                  initialReleased={q.isReleased}
                 />
               </span>
             </li>
