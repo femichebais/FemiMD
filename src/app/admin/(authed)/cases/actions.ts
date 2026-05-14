@@ -75,8 +75,15 @@ function letterFor(i: number): string {
 
 function validate(draft: DraftCase): string | null {
   if (!draft.title.trim()) return "Title is required.";
-  if (!draft.linkedDiagnosisSlug.trim())
-    return "Linked diagnosis slug is required.";
+  // linkedDiagnosisSlug is optional — feedback page just omits the library
+  // link card if it's not set. If provided, it should be valid kebab-case
+  // so the URL doesn't break.
+  if (
+    draft.linkedDiagnosisSlug.trim() &&
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.linkedDiagnosisSlug.trim())
+  ) {
+    return "Linked diagnosis slug must be lowercase kebab-case (e.g. myocardial-infarction).";
+  }
   if (draft.levels.length === 0)
     return "Choose at least one level for the case.";
   if (draft.stages.length === 0)
@@ -131,7 +138,7 @@ export async function createCase(
           title: draft.title.trim(),
           description: draft.description.trim() || null,
           scenarioIntro: draft.scenarioIntro.trim() || null,
-          linkedDiagnosisSlug: draft.linkedDiagnosisSlug.trim(),
+          linkedDiagnosisSlug: draft.linkedDiagnosisSlug.trim() || null,
           quizQuestionCount: draft.quizQuestionCount,
         })
         .returning({ id: cases.id });
@@ -222,8 +229,16 @@ export async function updateCaseText(
   await requireRole("admin");
 
   if (!edit.title.trim()) return { ok: false, error: "Title is required." };
-  if (!edit.linkedDiagnosisSlug.trim())
-    return { ok: false, error: "Linked diagnosis is required." };
+  // linkedDiagnosisSlug optional; validate shape only when provided.
+  if (
+    edit.linkedDiagnosisSlug.trim() &&
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(edit.linkedDiagnosisSlug.trim())
+  ) {
+    return {
+      ok: false,
+      error: "Linked diagnosis slug must be lowercase kebab-case.",
+    };
+  }
 
   try {
     await db.transaction(async (tx) => {
@@ -233,7 +248,7 @@ export async function updateCaseText(
           title: edit.title.trim(),
           description: edit.description.trim() || null,
           scenarioIntro: edit.scenarioIntro.trim() || null,
-          linkedDiagnosisSlug: edit.linkedDiagnosisSlug.trim(),
+          linkedDiagnosisSlug: edit.linkedDiagnosisSlug.trim() || null,
         })
         .where(and(eq(cases.id, edit.caseId), isNull(cases.deletedAt)));
 
