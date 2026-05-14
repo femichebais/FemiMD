@@ -25,7 +25,18 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// Site URL resolution, in priority order:
+//   1. NEXT_PUBLIC_SITE_URL — explicit override (use for custom domains)
+//   2. VERCEL_PROJECT_PRODUCTION_URL — Vercel's stable production URL
+//   3. VERCEL_URL — Vercel's per-deployment URL (preview deploys)
+//   4. localhost — local dev fallback
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
 const DESCRIPTION =
   "Patient cases for high school and undergraduate students. Stage by stage. Decisions that build clinical judgement.";
 
