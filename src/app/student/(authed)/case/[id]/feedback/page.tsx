@@ -61,14 +61,9 @@ export default async function FeedbackPage({
     attempt.totalScore ??
     breakdown.reduce((sum, b) => sum + (b.attempt?.earnedScore ?? 0), 0);
 
-  // Max-possible = sum of (top-maxPicks scores per stage) for scored stages,
-  // 1 per binary stage. Mirrors the per-stage max in stage-breakdown.tsx.
+  // Max-possible = sum of (top-maxPicks scores per stage) across every stage.
+  // Mirrors the per-stage max in stage-breakdown.tsx.
   const maxPossible = breakdown.reduce((sum, b) => {
-    const binary =
-      b.stage.type === "diagnosis" ||
-      b.stage.type === "disposition" ||
-      b.stage.type === "treatment";
-    if (binary) return sum + 1;
     const topN = [...b.choices]
       .sort((x, y) => y.score - x.score)
       .slice(0, b.stage.maxPicks);

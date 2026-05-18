@@ -24,15 +24,6 @@ const TYPE_LABEL: Record<Stage["type"], string> = {
   treatment: "Treatment",
 };
 
-// Binary = score derived from is_correct, not a weighted integer.
-// Treatment was added here as "multi-correct binary" — admin can mark
-// several choices correct; student picks one, +1 if it's any of them.
-const BINARY_STAGES = new Set<Stage["type"]>([
-  "diagnosis",
-  "disposition",
-  "treatment",
-]);
-
 interface Pick {
   choiceId: string;
   score: number;
@@ -119,7 +110,6 @@ export function CasePlayer({
 
   const currentStage = stages[stageIndex];
   const currentChoices = choices.filter((c) => c.stageId === currentStage.id);
-  const isBinary = BINARY_STAGES.has(currentStage.type);
   const maxPicks = currentStage.maxPicks;
   const remainingPicks = maxPicks - picks.length;
   const allPicksMade = remainingPicks <= 0;
@@ -283,29 +273,13 @@ export function CasePlayer({
         {allPicksMade && (
           <div className="flex justify-between items-center mt-8 animate-[femi-fade-in_0.3s_ease_0.1s_both]">
             <div className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
-              {isBinary ? (
-                picks[0]?.isCorrect ? (
-                  <span>
-                    <strong className="text-accent font-medium text-[13px]">
-                      Correct
-                    </strong>
-                  </span>
-                ) : (
-                  <span>
-                    <strong className="text-[var(--warning)] font-medium text-[13px]">
-                      Incorrect
-                    </strong>
-                  </span>
-                )
-              ) : (
-                <span>
-                  <strong className="text-accent font-medium text-[13px]">
-                    +{stageScore}
-                  </strong>{" "}
-                  point{stageScore === 1 ? "" : "s"} · stage score:{" "}
-                  {stageScore} / {maxPossible}
-                </span>
-              )}
+              <span>
+                <strong className="text-accent font-medium text-[13px]">
+                  +{stageScore}
+                </strong>{" "}
+                point{stageScore === 1 ? "" : "s"} · stage score:{" "}
+                {stageScore} / {maxPossible}
+              </span>
             </div>
             <Button
               onClick={handleContinue}

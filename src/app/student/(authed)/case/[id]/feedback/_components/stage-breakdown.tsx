@@ -10,12 +10,6 @@ const TYPE_LABEL: Record<Stage["type"], string> = {
   treatment: "Treatment",
 };
 
-const BINARY_STAGES = new Set<Stage["type"]>([
-  "diagnosis",
-  "disposition",
-  "treatment",
-]);
-
 export interface StageBreakdownItemProps {
   item: StageBreakdown;
   index: number;
@@ -28,7 +22,10 @@ export function StageBreakdownItem({
   totalOfType,
 }: StageBreakdownItemProps) {
   const { stage, choices, attempt } = item;
-  const isBinary = BINARY_STAGES.has(stage.type);
+  // Stages that author a "right answer" use is_correct (diagnosis, disposition,
+  // treatment). We use it only to label the recap ("Correct answer" vs
+  // "Best pick"); the scoring itself is always score-weighted.
+  const hasCorrectMarker = choices.some((c) => c.isCorrect !== null);
 
   // Picked choices in pick order. Look up the full choice object.
   const pickedIds = attempt?.picks.map((p) => p.choice_id) ?? [];
@@ -36,14 +33,10 @@ export function StageBreakdownItem({
     .map((id) => choices.find((c) => c.id === id))
     .filter((c): c is NonNullable<typeof c> => Boolean(c));
 
-  // "Best/correct" choices.
-  // For binary: the is_correct=true row.
-  // For scored: top maxPicks by score.
-  const bestChoices = isBinary
-    ? choices.filter((c) => c.isCorrect === true)
-    : [...choices]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, stage.maxPicks);
+  // Best picks = top maxPicks by score for every stage type.
+  const bestChoices = [...choices]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, stage.maxPicks);
   const bestIds = new Set(bestChoices.map((c) => c.id));
   const pickedSet = new Set(pickedIds);
   const studentGotItOptimal =
@@ -51,9 +44,7 @@ export function StageBreakdownItem({
     pickedIds.every((id) => bestIds.has(id));
 
   const earned = attempt?.earnedScore ?? 0;
-  const maxPossible = isBinary
-    ? 1
-    : bestChoices.reduce((sum, c) => sum + c.score, 0);
+  const maxPossible = bestChoices.reduce((sum, c) => sum + c.score, 0);
 
   const label =
     totalOfType && totalOfType.total > 1
@@ -75,8 +66,7 @@ export function StageBreakdownItem({
         <>
           <div className="mb-6">
             <p className="label-mono mb-3">
-              {isBinary ? "Your answer" : "Your pick"}
-              {pickedChoices.length > 1 ? "s" : ""}
+              Your pick{pickedChoices.length > 1 ? "s" : ""}
             </p>
             <ul>
               {pickedChoices.map((choice) => (
@@ -84,24 +74,12 @@ export function StageBreakdownItem({
                   key={choice.id}
                   letter={choice.letter}
                   text={choice.text}
-                  trailing={
-                    isBinary
-                      ? choice.isCorrect
-                        ? "Correct"
-                        : "Incorrect"
-                      : `+${choice.score} point${choice.score === 1 ? "" : "s"}`
-                  }
-                  tone={
-                    isBinary
-                      ? choice.isCorrect
-                        ? "accent"
-                        : "warning"
-                      : "accent"
-                  }
+                  trailing={`+${choice.score} point${choice.score === 1 ? "" : "s"}`}
+                  tone={choice.score > 0 ? "accent" : "warning"}
                 />
               ))}
             </ul>
-            {!isBinary && pickedChoices.length > 0 && (
+            {pickedChoices.length > 0 && (
               <p className="mt-3 font-mono text-[11px] text-ink-mute tracking-[0.05em]">
                 Stage score:{" "}
                 <strong className="text-accent font-medium text-[13px]">
@@ -114,7 +92,7 @@ export function StageBreakdownItem({
           {!studentGotItOptimal && bestChoices.length > 0 && (
             <div>
               <p className="label-mono mb-3">
-                {isBinary ? "Correct answer" : "Best pick"}
+                {hasCorrectMarker ? "Correct answer" : "Best pick"}
                 {bestChoices.length > 1 ? "s" : ""}
               </p>
               <ul>
@@ -125,11 +103,7 @@ export function StageBreakdownItem({
                       key={choice.id}
                       letter={choice.letter}
                       text={choice.text}
-                      trailing={
-                        isBinary
-                          ? "Correct"
-                          : `+${choice.score} point${choice.score === 1 ? "" : "s"}`
-                      }
+                      trailing={`+${choice.score} point${choice.score === 1 ? "" : "s"}`}
                       tone="muted"
                     />
                   ))}

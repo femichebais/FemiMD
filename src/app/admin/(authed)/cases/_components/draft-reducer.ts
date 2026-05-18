@@ -185,8 +185,6 @@ export function draftReducer(
 
     case "SET_STAGE_TYPE":
       return mapStage(state, action.stageId, (s) => {
-        // Changing to a binary type clears scores; clearing isCorrect when
-        // switching away keeps the data sane.
         const goingBinary = BINARY_STAGES.has(action.stageType);
         const wasBinary = BINARY_STAGES.has(s.type);
         return {
@@ -195,7 +193,6 @@ export function draftReducer(
           maxPicks: goingBinary ? 1 : s.maxPicks,
           choices: s.choices.map((c) => ({
             ...c,
-            score: goingBinary ? 0 : c.score,
             isCorrect: goingBinary
               ? c.isCorrect ?? false
               : wasBinary

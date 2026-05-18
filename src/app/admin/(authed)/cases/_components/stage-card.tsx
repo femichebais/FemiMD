@@ -126,9 +126,9 @@ export function StageCard({
                 Choices{" "}
                 <span className="text-ink-fade ml-2">
                   {isSingleCorrect
-                    ? "mark exactly one correct"
+                    ? "mark exactly one correct · assign points per choice"
                     : isMultiCorrect
-                      ? "mark any correct (student needs one)"
+                      ? "mark any correct · assign points per choice"
                       : "scores ≥ 0"}
                 </span>
               </>
@@ -234,7 +234,7 @@ function ChoicesEditor({
           className="grid items-center gap-[14px] px-4 py-3 border-b border-rule last:border-b-0"
           style={{
             gridTemplateColumns: isBinary
-              ? "28px 1fr 88px 24px"
+              ? "28px 1fr 70px 88px 24px"
               : "28px 1fr 70px 24px",
           }}
         >
@@ -255,7 +255,24 @@ function ChoicesEditor({
             placeholder="Choice text"
             className="border-none bg-transparent font-serif text-[15px] text-ink focus:outline-none w-full"
           />
-          {isSingleCorrect ? (
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={choice.score}
+            onChange={(e) =>
+              dispatch({
+                type: "SET_CHOICE_SCORE",
+                stageId: stage.tempId,
+                choiceId: choice.tempId,
+                value: Number(e.target.value),
+              })
+            }
+            disabled={locked}
+            title="Points awarded if this choice is picked"
+            className="border border-rule rounded-[2px] px-2 py-1 font-mono text-[12px] text-center bg-paper focus:outline-none focus:border-accent disabled:opacity-50 w-[60px]"
+          />
+          {isSingleCorrect && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -276,7 +293,8 @@ function ChoicesEditor({
                 Correct
               </span>
             </label>
-          ) : isMultiCorrect ? (
+          )}
+          {isMultiCorrect && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -296,23 +314,6 @@ function ChoicesEditor({
                 Correct
               </span>
             </label>
-          ) : (
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={choice.score}
-              onChange={(e) =>
-                dispatch({
-                  type: "SET_CHOICE_SCORE",
-                  stageId: stage.tempId,
-                  choiceId: choice.tempId,
-                  value: Number(e.target.value),
-                })
-              }
-              disabled={locked}
-              className="border border-rule rounded-[2px] px-2 py-1 font-mono text-[12px] text-center bg-paper focus:outline-none focus:border-accent disabled:opacity-50 w-[60px]"
-            />
           )}
           {locked ? (
             <span aria-hidden className="text-ink-fade text-[14px] leading-none">
