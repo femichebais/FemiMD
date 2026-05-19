@@ -107,10 +107,13 @@ export function QuizPlayer({
             <div>
               <div className="label-mono mb-2">Your score</div>
               <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-                {graded.score}
-                <span className="text-ink-mute text-[28px] ml-2">
-                  / {graded.total}
-                </span>
+                {graded.total === 0
+                  ? 0
+                  : Math.round((graded.score / graded.total) * 100)}
+                <span className="text-ink-mute text-[28px] ml-1">%</span>
+              </div>
+              <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+                {graded.score} of {graded.total} correct
               </div>
             </div>
             <div className="flex items-center gap-3">

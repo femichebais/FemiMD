@@ -9,6 +9,11 @@ import {
 
 export const metadata: Metadata = { title: "Classrooms" };
 
+// Counts (students, released cases) change on student signup + release
+// toggles; opt out of the full-route cache so this dashboard always
+// reflects live DB state.
+export const dynamic = "force-dynamic";
+
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
   high: "High school",

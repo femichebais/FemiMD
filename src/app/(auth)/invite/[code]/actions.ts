@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { classrooms, profiles, students } from "@/db/schema";
@@ -106,6 +107,11 @@ export async function inviteSignup(
       values: { name, email },
     };
   }
+
+  // Bust the teacher's dashboard + classroom-detail caches so the new
+  // student shows up in their roster + topline counts immediately.
+  revalidatePath("/teacher");
+  revalidatePath(`/teacher/classroom/${classroom.id}`);
 
   redirect("/student");
 }

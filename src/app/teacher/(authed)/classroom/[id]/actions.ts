@@ -60,6 +60,8 @@ export async function toggleCaseRelease(args: {
   }
 
   revalidatePath(`/teacher/classroom/${args.classroomId}`);
+  // Dashboard shows released case count per classroom — keep it fresh.
+  revalidatePath("/teacher");
   return { ok: true };
 }
 
@@ -112,5 +114,6 @@ export async function toggleQuizRelease(args: {
   }
 
   revalidatePath(`/teacher/classroom/${args.classroomId}`);
+  revalidatePath("/teacher");
   return { ok: true };
 }

@@ -2,7 +2,56 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StageLabel } from "@/components/ui";
 import { requireRole } from "@/lib/auth/current-user";
-import { getStudentDetailForTeacher } from "@/lib/queries/teacher";
+import {
+  getStudentDetailForTeacher,
+  type StudentDetail,
+} from "@/lib/queries/teacher";
+
+interface QuizAggregate {
+  key: string;
+  caseTitle: string;
+  scope: string;
+  attemptCount: number;
+  bestPct: number;
+  latestPct: number;
+  latestAt: Date;
+}
+
+function aggregateQuizAttempts(
+  attempts: StudentDetail["quizAttempts"]
+): QuizAggregate[] {
+  const grouped = new Map<string, QuizAggregate>();
+  for (const q of attempts) {
+    const key = `${q.caseId}-${q.scope}`;
+    const pct =
+      q.questionCount === 0
+        ? 0
+        : Math.round((q.score / q.questionCount) * 100);
+    const completedAt = new Date(q.completedAt);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.attemptCount += 1;
+      existing.bestPct = Math.max(existing.bestPct, pct);
+      if (completedAt > existing.latestAt) {
+        existing.latestAt = completedAt;
+        existing.latestPct = pct;
+      }
+    } else {
+      grouped.set(key, {
+        key,
+        caseTitle: q.caseTitle ?? "Quiz",
+        scope: q.scope ?? "",
+        attemptCount: 1,
+        bestPct: pct,
+        latestPct: pct,
+        latestAt: completedAt,
+      });
+    }
+  }
+  return [...grouped.values()].sort(
+    (a, b) => b.latestAt.getTime() - a.latestAt.getTime()
+  );
+}
 
 const TYPE_LABEL: Record<string, string> = {
   history: "History",
@@ -116,30 +165,58 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
           No quizzes taken yet.
         </p>
       ) : (
-        <ul>
-          {quizAttempts.map((q) => (
-            <li
-              key={q.id}
-              className="grid grid-cols-[1fr_80px_80px_120px] items-baseline gap-6 py-3 border-b border-rule"
-            >
-              <span className="font-serif text-[16px] text-ink truncate">
-                {q.caseTitle}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
-                {q.scope}-test
-              </span>
-              <span className="font-mono text-[12px] tabular-nums text-right">
-                {q.score} / {q.questionCount}
-              </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
-                {new Intl.DateTimeFormat("en-US", {
-                  month: "short",
-                  day: "numeric",
-                }).format(new Date(q.completedAt))}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="grid grid-cols-[1fr_80px_90px_90px_90px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              Quiz
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              Scope
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Attempts
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Best
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Latest
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Last taken
+            </span>
+          </div>
+          <ul>
+            {aggregateQuizAttempts(quizAttempts).map((g) => (
+              <li
+                key={g.key}
+                className="grid grid-cols-[1fr_80px_90px_90px_90px_110px] items-baseline gap-6 py-3 border-b border-rule"
+              >
+                <span className="font-serif text-[16px] text-ink truncate">
+                  {g.caseTitle}
+                </span>
+                <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
+                  {g.scope}-test
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.attemptCount}
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.bestPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                  {g.latestPct}%
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                  {new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  }).format(new Date(g.latestAt))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </main>
   );
