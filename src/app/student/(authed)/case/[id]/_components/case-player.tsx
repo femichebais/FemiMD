@@ -9,12 +9,15 @@ import {
   StageLabel,
   Button,
 } from "@/components/ui";
+import { ArticleBody } from "@/components/markdown/article";
 import type { Case, Stage, Choice } from "@/db/schema";
 import {
   startCaseAttempt,
   recordStageAttempt,
   completeCaseAttempt,
 } from "../actions";
+import { StageBreakdownItem } from "../feedback/_components/stage-breakdown";
+import type { StageBreakdown } from "@/lib/queries/feedback";
 
 const TYPE_LABEL: Record<Stage["type"], string> = {
   history: "History",
@@ -58,6 +61,12 @@ export function CasePlayer({
   const [startError, setStartError] = useState<string | null>(null);
   const [stageError, setStageError] = useState<string | null>(null);
   const [isAdvancing, startAdvancing] = useTransition();
+  // Preview-mode only: accumulate picks across every stage so we can render
+  // the scoring report inline when the admin finishes walking through.
+  const [picksByStageId, setPicksByStageId] = useState<Record<string, Pick[]>>(
+    {}
+  );
+  const [showPreviewFeedback, setShowPreviewFeedback] = useState(false);
 
   // Start the attempt on mount. Doing this from useEffect (not the server
   // page render) means a hover-prefetch by Next won't create orphan rows;
@@ -139,10 +148,12 @@ export function CasePlayer({
     setStageError(null);
 
     // Preview mode: advance through stages locally, never persist anything.
-    // Final Continue takes admin back to the editor.
+    // Final Continue swaps to the in-memory scoring report so admin can
+    // verify how points + clinical takeaway will read for students.
     if (previewMode) {
+      setPicksByStageId((prev) => ({ ...prev, [currentStage.id]: picks }));
       if (isLast) {
-        router.push(`/admin/cases/${caseId}`);
+        setShowPreviewFeedback(true);
         return;
       }
       setStageIndex((i) => i + 1);
@@ -194,6 +205,24 @@ export function CasePlayer({
       .sort((a, b) => b - a);
     return sorted.slice(0, maxPicks).reduce((a, b) => a + b, 0);
   }, [currentChoices, maxPicks]);
+
+  if (showPreviewFeedback) {
+    return (
+      <PreviewFeedback
+        caseId={caseId}
+        caseData={caseData}
+        stages={stages}
+        choices={choices}
+        picksByStageId={picksByStageId}
+        onRetry={() => {
+          setShowPreviewFeedback(false);
+          setStageIndex(0);
+          setPicks([]);
+          setPicksByStageId({});
+        }}
+      />
+    );
+  }
 
   return (
     <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
@@ -323,6 +352,136 @@ export function CasePlayer({
             {stageError}
           </p>
         )}
+      </div>
+    </main>
+  );
+}
+
+// In-memory scoring report for admin preview mode. Mirrors the student
+// feedback page (src/app/student/(authed)/case/[id]/feedback/page.tsx) but
+// builds the breakdown from local picks instead of a real attempt row.
+function PreviewFeedback({
+  caseId,
+  caseData,
+  stages,
+  choices,
+  picksByStageId,
+  onRetry,
+}: {
+  caseId: string;
+  caseData: Case;
+  stages: Stage[];
+  choices: Choice[];
+  picksByStageId: Record<string, Pick[]>;
+  onRetry: () => void;
+}) {
+  const breakdown: StageBreakdown[] = stages.map((stage) => {
+    const stageChoices = choices.filter((c) => c.stageId === stage.id);
+    const stagePicks = picksByStageId[stage.id];
+    const attempt = stagePicks
+      ? {
+          earnedScore: stagePicks.reduce((s, p) => s + p.score, 0),
+          picks: stagePicks.map((p, i) => ({
+            choice_id: p.choiceId,
+            pick_order: i + 1,
+            score: p.score,
+          })),
+        }
+      : null;
+    return { stage, choices: stageChoices, attempt };
+  });
+
+  const earned = breakdown.reduce(
+    (sum, b) => sum + (b.attempt?.earnedScore ?? 0),
+    0
+  );
+  const maxPossible = breakdown.reduce((sum, b) => {
+    const topN = [...b.choices]
+      .sort((x, y) => y.score - x.score)
+      .slice(0, b.stage.maxPicks);
+    return sum + topN.reduce((s, c) => s + c.score, 0);
+  }, 0);
+
+  const typeCounts = new Map<Stage["type"], number>();
+  breakdown.forEach((b) =>
+    typeCounts.set(b.stage.type, (typeCounts.get(b.stage.type) ?? 0) + 1)
+  );
+  const typeIndexer = new Map<Stage["type"], number>();
+
+  return (
+    <main className="px-6 md:px-12 py-10 md:py-14 pb-24">
+      <div className="max-w-case mx-auto">
+        <div className="mb-8 -mt-2 flex items-center justify-between gap-4 px-4 py-3 bg-accent-soft border-l-2 border-accent rounded-[2px]">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+              Preview · scoring report
+            </div>
+            <div className="font-serif italic text-[14px] text-ink-mute mt-1">
+              Computed from your preview picks. No attempt was recorded.
+            </div>
+          </div>
+          <a
+            href={`/admin/cases/${caseId}`}
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink whitespace-nowrap"
+          >
+            ← Back to editor
+          </a>
+        </div>
+
+        <StageLabel className="mb-5">Case complete</StageLabel>
+        <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
+          Nice work.
+        </h1>
+        <p className="font-serif italic text-[18px] text-ink-mute mb-12">
+          {caseData.title}
+        </p>
+
+        <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+          <div>
+            <div className="label-mono mb-2">Total score</div>
+            <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
+              {earned}
+              <span className="text-ink-mute text-[28px] ml-2">
+                / {maxPossible}
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="label-mono mb-2">Preview</div>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+            >
+              Retry preview ↻
+            </button>
+          </div>
+        </section>
+
+        {caseData.clinicalTakeaway && (
+          <section className="mb-14">
+            <StageLabel className="mb-5">Clinical takeaway</StageLabel>
+            <div className="border-l-2 border-accent pl-6 max-w-read">
+              <ArticleBody markdown={caseData.clinicalTakeaway} />
+            </div>
+          </section>
+        )}
+
+        <StageLabel className="mb-7">Stage breakdown</StageLabel>
+
+        {breakdown.map((item, i) => {
+          const idx = (typeIndexer.get(item.stage.type) ?? 0) + 1;
+          typeIndexer.set(item.stage.type, idx);
+          const total = typeCounts.get(item.stage.type) ?? 1;
+          return (
+            <StageBreakdownItem
+              key={item.stage.id}
+              item={item}
+              index={i}
+              totalOfType={{ index: idx, total }}
+            />
+          );
+        })}
       </div>
     </main>
   );

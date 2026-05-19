@@ -67,10 +67,11 @@ export function CaseEditor({
   const [restoredAt, setRestoredAt] = useState<Date | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  // In edit mode, stage-type changes are still disallowed — they cascade
-  // through every choice's is_correct value and would silently invalidate
-  // historical attempts. Everything else is editable in both modes.
-  const lockStageType = mode === "edit";
+  // Stage-type changes cascade through every choice's is_correct value and
+  // would silently invalidate historical attempts — so we only allow them
+  // before a case is published. Drafts (and brand-new cases in create mode)
+  // have no attempts yet, so full edit is safe.
+  const lockStageType = mode === "edit" && publishedAt !== null;
 
   // Tracks whether we've finished the initial restore so the auto-save
   // effect doesn't immediately overwrite a fresh draft with the empty
