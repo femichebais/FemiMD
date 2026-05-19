@@ -27,7 +27,10 @@ async function safeLoad(
 
 export default async function ProgressPage() {
   const { user } = await requireRole("student");
-  const { cases, quizzes } = await safeLoad(user.id);
+  const { cases: allCases, quizzes } = await safeLoad(user.id);
+  // Only completed case attempts. In-progress runs aren't useful here —
+  // the student can pick them back up from the dashboard.
+  const cases = allCases.filter((a) => a.completedAt !== null);
 
   return (
     <main className="max-w-case mx-auto px-6 md:px-12 py-10 md:py-14">
@@ -47,10 +50,10 @@ export default async function ProgressPage() {
         Every attempt is kept. Retakes append — they don&apos;t overwrite.
       </p>
 
-      <StageLabel className="mb-5">Case attempts</StageLabel>
+      <StageLabel className="mb-5">Completed cases</StageLabel>
       {cases.length === 0 ? (
         <p className="font-serif italic text-[15px] text-ink-mute mb-12">
-          You haven&apos;t started a case yet.
+          You haven&apos;t completed a case yet.
         </p>
       ) : (
         <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0 mb-14">
@@ -58,21 +61,14 @@ export default async function ProgressPage() {
           {cases.map((a) => (
             <li
               key={a.id}
-              className="grid grid-cols-[1fr_100px_100px_160px] items-baseline gap-6 py-4 border-b border-rule min-w-[560px]"
+              className="grid grid-cols-[1fr_100px_160px] items-baseline gap-6 py-4 border-b border-rule min-w-[520px]"
             >
               <Link
-                href={
-                  a.completedAt
-                    ? `/student/case/${a.caseId}/feedback?attempt=${a.id}`
-                    : `/student/case/${a.caseId}`
-                }
+                href={`/student/case/${a.caseId}/feedback?attempt=${a.id}`}
                 className="font-serif text-[17px] text-ink hover:text-accent transition-colors truncate"
               >
                 {a.caseTitle}
               </Link>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
-                {a.completedAt ? "Completed" : "In progress"}
-              </span>
               <span className="font-mono text-[12px] tabular-nums text-right">
                 {a.totalScore !== null ? `${a.totalScore} pts` : "—"}
               </span>

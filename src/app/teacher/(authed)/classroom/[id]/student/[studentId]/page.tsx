@@ -89,7 +89,10 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
   );
   if (!detail) notFound();
 
-  const { student, classroom, attempts, quizAttempts } = detail;
+  const { student, classroom, attempts: allAttempts, quizAttempts } = detail;
+  // Hide in-progress case runs from the teacher's view — only completed
+  // attempts contribute to performance review.
+  const attempts = allAttempts.filter((a) => a.completedAt !== null);
 
   return (
     <main className="max-w-[900px] mx-auto px-6 md:px-12 py-10 md:py-14">
@@ -109,10 +112,10 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         {student.email}
       </p>
 
-      <StageLabel className="mb-5">Case attempts</StageLabel>
+      <StageLabel className="mb-5">Completed cases</StageLabel>
       {attempts.length === 0 ? (
         <p className="font-serif italic text-[16px] text-ink-mute mb-14">
-          No case attempts yet.
+          No completed cases yet.
         </p>
       ) : (
         <ul className="mb-14">
@@ -135,9 +138,6 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                 </span>
               </div>
               <div className="flex items-center gap-6 font-mono text-[11px] text-ink-mute mb-3">
-                <span>
-                  {a.completedAt ? "Completed" : "In progress"}
-                </span>
                 {a.totalScore !== null && (
                   <span>
                     Score{" "}

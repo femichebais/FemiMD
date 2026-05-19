@@ -93,10 +93,13 @@ export default async function FeedbackPage({
           <div>
             <div className="label-mono mb-2">Total score</div>
             <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-              {earned}
-              <span className="text-ink-mute text-[28px] ml-2">
-                / {maxPossible}
-              </span>
+              {maxPossible === 0
+                ? 0
+                : Math.round((earned / maxPossible) * 100)}
+              <span className="text-ink-mute text-[28px] ml-1">%</span>
+            </div>
+            <div className="mt-2 font-mono text-[12px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+              {earned} of {maxPossible} points
             </div>
           </div>
           <div className="text-right">

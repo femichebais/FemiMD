@@ -24,8 +24,10 @@ export default async function StudentDashboard() {
   const { user } = await requireRole("student");
   const all = await safeList(user.id);
 
-  const inProgress = all.filter((c) => c.state === "in_progress");
-  const notStarted = all.filter((c) => c.state === "not_started");
+  // In-progress + not-started share the "available" bucket. We don't
+  // surface a separate "In progress" section anymore — every uncompleted
+  // case is just a case the student can take.
+  const available = all.filter((c) => c.state !== "completed");
   const completed = all.filter((c) => c.state === "completed");
 
   return (
@@ -61,8 +63,7 @@ export default async function StudentDashboard() {
         </p>
       )}
 
-      <CaseGroup label="In progress" cases={inProgress} />
-      <CaseGroup label="Not started" cases={notStarted} />
+      <CaseGroup label="Available" cases={available} />
       <CaseGroup label="Completed" cases={completed} />
     </main>
   );
