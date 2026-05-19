@@ -33,9 +33,12 @@ export interface StageCardProps {
   index: number;
   dispatch: Dispatch<DraftAction>;
   defaultOpen?: boolean;
-  // When locked (edit mode), structural fields are read-only. Text + response
-  // text remain editable per brief §7.
-  locked?: boolean;
+  // Stage-type changes cascade across all choices' is_correct values, so we
+  // keep the type select hidden in edit mode to prevent foot-guns.
+  // Everything else in the editor is editable in both modes.
+  lockStageType?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function StageCard({
@@ -43,7 +46,9 @@ export function StageCard({
   index,
   dispatch,
   defaultOpen,
-  locked,
+  lockStageType,
+  canMoveUp,
+  canMoveDown,
 }: StageCardProps) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const isBinary = BINARY_STAGES.has(stage.type);
@@ -56,33 +61,71 @@ export function StageCard({
         open ? "border-accent" : "border-rule-strong hover:border-ink-fade"
       }`}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center gap-[18px] px-[22px] py-4 text-left cursor-pointer ${
+      <div
+        className={`w-full flex items-center gap-[18px] px-[22px] py-4 ${
           open ? "border-b border-rule" : ""
         }`}
       >
-        <span className="font-mono text-[11px] text-ink-fade w-6 tracking-[0.05em]">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-accent px-[9px] py-1 bg-accent-soft rounded-[2px] font-medium">
-          {TYPE_LABEL[stage.type]}
-        </span>
-        <span className="font-serif text-[16px] flex-1 text-ink truncate">
-          {stage.prompt || (
-            <span className="text-ink-fade italic">No prompt yet</span>
-          )}
-        </span>
-        <span className="font-mono text-[10px] text-ink-fade tracking-[0.05em]">
-          {stage.choices.length} choices · {stage.maxPicks} pick
-          {stage.maxPicks === 1 ? "" : "s"}
-        </span>
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-[18px] flex-1 min-w-0 text-left cursor-pointer"
+        >
+          <span className="font-mono text-[11px] text-ink-fade w-6 tracking-[0.05em]">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-accent px-[9px] py-1 bg-accent-soft rounded-[2px] font-medium">
+            {TYPE_LABEL[stage.type]}
+          </span>
+          <span className="font-serif text-[16px] flex-1 text-ink truncate">
+            {stage.prompt || (
+              <span className="text-ink-fade italic">No prompt yet</span>
+            )}
+          </span>
+          <span className="font-mono text-[10px] text-ink-fade tracking-[0.05em] whitespace-nowrap">
+            {stage.choices.length} choices · {stage.maxPicks} pick
+            {stage.maxPicks === 1 ? "" : "s"}
+          </span>
+        </button>
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "MOVE_STAGE",
+                stageId: stage.tempId,
+                direction: "up",
+              })
+            }
+            disabled={!canMoveUp}
+            title="Move stage up"
+            aria-label="Move stage up"
+            className="w-6 h-6 flex items-center justify-center font-mono text-[12px] text-ink-fade hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "MOVE_STAGE",
+                stageId: stage.tempId,
+                direction: "down",
+              })
+            }
+            disabled={!canMoveDown}
+            title="Move stage down"
+            aria-label="Move stage down"
+            className="w-6 h-6 flex items-center justify-center font-mono text-[12px] text-ink-fade hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+          >
+            ↓
+          </button>
+        </div>
+      </div>
 
       {open && (
         <div className="p-7 bg-paper">
-          {!locked && (
+          {!lockStageType && (
             <FieldGroup label="Stage type">
               <select
                 value={stage.type}
@@ -139,7 +182,6 @@ export function StageCard({
               dispatch={dispatch}
               isSingleCorrect={isSingleCorrect}
               isMultiCorrect={isMultiCorrect}
-              locked={locked}
             />
           </FieldGroup>
 
@@ -147,48 +189,44 @@ export function StageCard({
             <ResponsesEditor stage={stage} dispatch={dispatch} />
           </FieldGroup>
 
-          {!locked && (
-            <FieldGroup label="Max picks">
-              <input
-                type="number"
-                min={1}
-                max={stage.choices.length}
-                value={stage.maxPicks}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_STAGE_MAX_PICKS",
-                    stageId: stage.tempId,
-                    value: Number(e.target.value),
-                  })
-                }
-                disabled={isBinary}
-                className="w-20 border border-rule-strong bg-surface rounded-[2px] px-3 py-2 font-mono text-[12px] text-center focus:outline-none focus:border-accent disabled:opacity-50"
-              />
-              <span className="ml-3 font-mono text-[10px] text-ink-fade tracking-[0.05em] uppercase">
-                {isBinary ? "binary stage — locked at 1" : "additive scoring"}
-              </span>
-            </FieldGroup>
-          )}
+          <FieldGroup label="Max picks">
+            <input
+              type="number"
+              min={1}
+              max={stage.choices.length}
+              value={stage.maxPicks}
+              onChange={(e) =>
+                dispatch({
+                  type: "SET_STAGE_MAX_PICKS",
+                  stageId: stage.tempId,
+                  value: Number(e.target.value),
+                })
+              }
+              disabled={isBinary}
+              className="w-20 border border-rule-strong bg-surface rounded-[2px] px-3 py-2 font-mono text-[12px] text-center focus:outline-none focus:border-accent disabled:opacity-50"
+            />
+            <span className="ml-3 font-mono text-[10px] text-ink-fade tracking-[0.05em] uppercase">
+              {isBinary ? "binary stage — locked at 1" : "additive scoring"}
+            </span>
+          </FieldGroup>
 
-          {!locked && (
-            <div className="flex justify-end mt-4 pt-4 border-t border-rule">
-              <button
-                type="button"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Remove stage ${index + 1}? Choices and response text will be lost.`
-                    )
-                  ) {
-                    dispatch({ type: "REMOVE_STAGE", stageId: stage.tempId });
-                  }
-                }}
-                className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade hover:text-[var(--warning)] transition-colors"
-              >
-                Remove stage
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end mt-4 pt-4 border-t border-rule">
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Remove stage ${index + 1}? Choices and response text will be lost.`
+                  )
+                ) {
+                  dispatch({ type: "REMOVE_STAGE", stageId: stage.tempId });
+                }
+              }}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade hover:text-[var(--warning)] transition-colors"
+            >
+              Remove stage
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -217,13 +255,11 @@ function ChoicesEditor({
   dispatch,
   isSingleCorrect,
   isMultiCorrect,
-  locked,
 }: {
   stage: ClientStage;
   dispatch: Dispatch<DraftAction>;
   isSingleCorrect: boolean;
   isMultiCorrect: boolean;
-  locked?: boolean;
 }) {
   const isBinary = isSingleCorrect || isMultiCorrect;
   return (
@@ -268,9 +304,8 @@ function ChoicesEditor({
                 value: Number(e.target.value),
               })
             }
-            disabled={locked}
             title="Points awarded if this choice is picked"
-            className="border border-rule rounded-[2px] px-2 py-1 font-mono text-[12px] text-center bg-paper focus:outline-none focus:border-accent disabled:opacity-50 w-[60px]"
+            className="border border-rule rounded-[2px] px-2 py-1 font-mono text-[12px] text-center bg-paper focus:outline-none focus:border-accent w-[60px]"
           />
           {isSingleCorrect && (
             <label className="flex items-center gap-2 cursor-pointer">
@@ -278,7 +313,6 @@ function ChoicesEditor({
                 type="radio"
                 name={`correct-${stage.tempId}`}
                 checked={choice.isCorrect === true}
-                disabled={locked}
                 onChange={() =>
                   dispatch({
                     type: "SET_CHOICE_CORRECT",
@@ -299,7 +333,6 @@ function ChoicesEditor({
               <input
                 type="checkbox"
                 checked={choice.isCorrect === true}
-                disabled={locked}
                 onChange={(e) =>
                   dispatch({
                     type: "SET_CHOICE_CORRECT",
@@ -315,44 +348,36 @@ function ChoicesEditor({
               </span>
             </label>
           )}
-          {locked ? (
-            <span aria-hidden className="text-ink-fade text-[14px] leading-none">
-              ⋮⋮
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() =>
-                dispatch({
-                  type: "REMOVE_CHOICE",
-                  stageId: stage.tempId,
-                  choiceId: choice.tempId,
-                })
-              }
-              disabled={stage.choices.length <= 2}
-              title={
-                stage.choices.length <= 2
-                  ? "A stage needs at least 2 choices"
-                  : "Remove this choice"
-              }
-              className="font-mono text-[14px] text-ink-fade hover:text-[var(--warning)] disabled:opacity-30 disabled:cursor-not-allowed leading-none"
-            >
-              ×
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "REMOVE_CHOICE",
+                stageId: stage.tempId,
+                choiceId: choice.tempId,
+              })
+            }
+            disabled={stage.choices.length <= 2}
+            title={
+              stage.choices.length <= 2
+                ? "A stage needs at least 2 choices"
+                : "Remove this choice"
+            }
+            className="font-mono text-[14px] text-ink-fade hover:text-[var(--warning)] disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+          >
+            ×
+          </button>
         </div>
       ))}
-      {!locked && (
-        <button
-          type="button"
-          onClick={() =>
-            dispatch({ type: "ADD_CHOICE", stageId: stage.tempId })
-          }
-          className="w-full text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border-t border-rule transition-colors"
-        >
-          + Add choice
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() =>
+          dispatch({ type: "ADD_CHOICE", stageId: stage.tempId })
+        }
+        className="w-full text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border-t border-rule transition-colors"
+      >
+        + Add choice
+      </button>
     </div>
   );
 }

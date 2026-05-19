@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { StageType } from "../actions";
-import { createCase, updateCaseText, togglePublish } from "../actions";
+import { createCase, updateCase, togglePublish } from "../actions";
 import {
   draftReducer,
   emptyCase,
@@ -67,7 +67,10 @@ export function CaseEditor({
   const [restoredAt, setRestoredAt] = useState<Date | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const locked = mode === "edit";
+  // In edit mode, stage-type changes are still disallowed — they cascade
+  // through every choice's is_correct value and would silently invalidate
+  // historical attempts. Everything else is editable in both modes.
+  const lockStageType = mode === "edit";
 
   // Tracks whether we've finished the initial restore so the auto-save
   // effect doesn't immediately overwrite a fresh draft with the empty
@@ -169,42 +172,29 @@ export function CaseEditor({
         router.push(`/admin/cases/${result.caseId}`);
       });
     } else {
-      // Edit mode: only send text edits, with server ids for stages/choices.
+      // Edit mode: full reconciliation. Send the whole draft + a parallel
+      // metadata array marking each stage/choice as existing (uuid via
+      // serverIdMap) or new. The server diffs against serverIdMap to know
+      // what to delete.
       if (!caseId || !serverIdMap) {
         setError("Missing case context — refresh and try again.");
         return;
       }
       startTransition(async () => {
-        const stageEdits = draft.stages
-          .map((s) => {
-            const stageId = serverIdMap.stages[s.tempId];
-            if (!stageId) return null;
-            return {
-              stageId,
-              prompt: s.prompt,
-              choices: s.choices
-                .map((c) => {
-                  const choiceId = serverIdMap.choices[c.tempId];
-                  if (!choiceId) return null;
-                  return {
-                    choiceId,
-                    text: c.text,
-                    responseText: c.responseText,
-                  };
-                })
-                .filter(<T,>(v: T | null): v is T => v !== null),
-            };
-          })
-          .filter(<T,>(v: T | null): v is T => v !== null);
+        const stageTempIds = draft.stages.map((s) => ({
+          tempId: s.tempId,
+          isNew: !serverIdMap.stages[s.tempId],
+          choiceTempIds: s.choices.map((c) => ({
+            tempId: c.tempId,
+            isNew: !serverIdMap.choices[c.tempId],
+          })),
+        }));
 
-        const result = await updateCaseText({
+        const result = await updateCase({
           caseId,
-          title: draft.title,
-          description: draft.description,
-          scenarioIntro: draft.scenarioIntro,
-          linkedDiagnosisSlug: draft.linkedDiagnosisSlug,
-          clinicalTakeaway: draft.clinicalTakeaway,
-          stageEdits,
+          draft: clientCaseToDraft(draft),
+          serverIdMap,
+          stageTempIds,
         });
         if (!result.ok) {
           setError(result.error);
@@ -222,7 +212,6 @@ export function CaseEditor({
         <CaseEditorSidebar
           draft={draft}
           dispatch={dispatch}
-          locked={locked}
           meta={mode === "edit" ? { caseId, ...meta } : undefined}
         />
       </div>
@@ -357,27 +346,27 @@ export function CaseEditor({
               defaultOpen={
                 mode === "create" && i === draft.stages.length - 1
               }
-              locked={locked}
+              lockStageType={lockStageType}
+              canMoveUp={i > 0}
+              canMoveDown={i < draft.stages.length - 1}
             />
           ))
         )}
 
-        {!locked && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-3">
-            {ADDABLE_STAGE_TYPES.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() =>
-                  dispatch({ type: "ADD_STAGE", stageType: t.value })
-                }
-                className="px-4 py-3 border border-dashed border-rule-strong rounded-[2px] font-sans text-[12px] text-ink-mute hover:border-accent hover:text-accent transition-colors"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-3">
+          {ADDABLE_STAGE_TYPES.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() =>
+                dispatch({ type: "ADD_STAGE", stageType: t.value })
+              }
+              className="px-4 py-3 border border-dashed border-rule-strong rounded-[2px] font-sans text-[12px] text-ink-mute hover:border-accent hover:text-accent transition-colors"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         {/* Bottom action bar */}
         <div className="mt-12 pt-6 border-t border-rule flex items-center justify-between gap-4">

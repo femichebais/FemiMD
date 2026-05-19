@@ -33,6 +33,7 @@ export type DraftAction =
   | { type: "TOGGLE_TREATMENT"; level: Level }
   | { type: "ADD_STAGE"; stageType: StageType }
   | { type: "REMOVE_STAGE"; stageId: string }
+  | { type: "MOVE_STAGE"; stageId: string; direction: "up" | "down" }
   | { type: "SET_STAGE_TYPE"; stageId: string; stageType: StageType }
   | { type: "SET_STAGE_PROMPT"; stageId: string; value: string }
   | { type: "SET_STAGE_MAX_PICKS"; stageId: string; value: number }
@@ -182,6 +183,16 @@ export function draftReducer(
         ...state,
         stages: state.stages.filter((s) => s.tempId !== action.stageId),
       };
+
+    case "MOVE_STAGE": {
+      const idx = state.stages.findIndex((s) => s.tempId === action.stageId);
+      if (idx === -1) return state;
+      const swapWith = action.direction === "up" ? idx - 1 : idx + 1;
+      if (swapWith < 0 || swapWith >= state.stages.length) return state;
+      const next = [...state.stages];
+      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+      return { ...state, stages: next };
+    }
 
     case "SET_STAGE_TYPE":
       return mapStage(state, action.stageId, (s) => {

@@ -14,8 +14,6 @@ const LEVELS: Array<{ value: Level; label: string }> = [
 export interface CaseEditorSidebarProps {
   draft: ClientCase;
   dispatch: Dispatch<DraftAction>;
-  // In edit mode, structural fields are locked per brief §7.
-  locked?: boolean;
   meta?: {
     caseId?: string;
     stageCount?: number;
@@ -27,7 +25,6 @@ export interface CaseEditorSidebarProps {
 export function CaseEditorSidebar({
   draft,
   dispatch,
-  locked,
   meta,
 }: CaseEditorSidebarProps) {
   return (
@@ -62,16 +59,11 @@ export function CaseEditorSidebar({
               ?.treatmentEnabled ?? false;
           return (
             <div key={level.value}>
-              <label
-                className={`flex items-center gap-[10px] py-[7px] text-[14px] ${
-                  locked ? "cursor-not-allowed text-ink-fade" : "cursor-pointer"
-                }`}
-              >
+              <label className="flex items-center gap-[10px] py-[7px] text-[14px] cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-accent w-[14px] h-[14px]"
                   checked={checked}
-                  disabled={locked}
                   onChange={() =>
                     dispatch({ type: "TOGGLE_LEVEL", level: level.value })
                   }
@@ -79,16 +71,11 @@ export function CaseEditorSidebar({
                 {level.label}
               </label>
               {checked && (
-                <label
-                  className={`flex items-center gap-[10px] py-[4px] pl-6 text-[12px] text-ink-mute ${
-                    locked ? "cursor-not-allowed" : "cursor-pointer"
-                  }`}
-                >
+                <label className="flex items-center gap-[10px] py-[4px] pl-6 text-[12px] text-ink-mute cursor-pointer">
                   <input
                     type="checkbox"
                     className="accent-accent w-[12px] h-[12px]"
                     checked={treatmentEnabled}
-                    disabled={locked}
                     onChange={() =>
                       dispatch({
                         type: "TOGGLE_TREATMENT",
@@ -112,8 +99,7 @@ export function CaseEditorSidebar({
             dispatch({ type: "SET_LINKED_SLUG", value: e.target.value })
           }
           placeholder="myocardial-infarction"
-          disabled={locked}
-          className="w-full border border-rule-strong bg-surface rounded-[2px] px-[10px] py-2 font-mono text-[12px] focus:outline-none focus:border-accent disabled:opacity-60"
+          className="w-full border border-rule-strong bg-surface rounded-[2px] px-[10px] py-2 font-mono text-[12px] focus:outline-none focus:border-accent"
         />
         <p className="mt-2 font-mono text-[10px] text-ink-fade tracking-[0.05em]">
           → links from feedback page
@@ -132,13 +118,12 @@ export function CaseEditorSidebar({
               value: Number(e.target.value),
             })
           }
-          disabled={locked}
-          className="w-20 border border-rule-strong bg-surface rounded-[2px] px-[10px] py-2 font-mono text-[12px] text-center focus:outline-none focus:border-accent disabled:opacity-60"
+          className="w-20 border border-rule-strong bg-surface rounded-[2px] px-[10px] py-2 font-mono text-[12px] text-center focus:outline-none focus:border-accent"
         />
       </Section>
 
-      {/* Pivot to quiz bank — only relevant in edit mode (case already exists) */}
-      {locked && meta?.caseId && (
+      {/* Pivot to quiz bank — only available once the case exists. */}
+      {meta?.caseId && (
         <Section label="Quiz bank">
           <Link
             href={`/admin/cases/${meta.caseId}/quiz`}

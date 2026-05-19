@@ -2,13 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, isNull, and } from "drizzle-orm";
+import { eq, isNull, and, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   cases,
   caseLevelConfig,
   stages,
   choices,
+  stageAttempts,
 } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 
@@ -220,88 +221,249 @@ export async function createCase(
 }
 
 // =============================================================================
-// updateCaseText — text-only edits. Brief §7 enforces this at the API layer.
-// Structural fields are intentionally not accepted; passing them does nothing.
+// updateCase — full reconciliation of a case in edit mode. Accepts the
+// entire DraftCase and a serverIdMap so we can tell which stages/choices are
+// existing rows (update) vs new (insert). Anything in the map that's no
+// longer in the draft is removed.
+//
+// Safety: stages with student attempts can't be deleted (FK restrict on
+// stage_attempts.stage_id). We surface a clean error in that case rather
+// than letting the transaction fail mid-flight.
 // =============================================================================
 
-export interface TextEdit {
+export interface UpdateCaseInput {
   caseId: string;
-  title: string;
-  description: string;
-  scenarioIntro: string;
-  linkedDiagnosisSlug: string;
-  clinicalTakeaway: string;
-  stageEdits: Array<{
-    stageId: string;
-    prompt: string;
-    choices: Array<{
-      choiceId: string;
-      text: string;
-      responseText: string;
-    }>;
+  draft: DraftCase;
+  // tempId → server uuid for stages/choices already in the DB at the time
+  // the editor was loaded. tempIds NOT in this map are treated as new.
+  serverIdMap: {
+    stages: Record<string, string>;
+    choices: Record<string, string>;
+  };
+  // Parallel array to draft.stages — same length, same order. Each entry is
+  // either the stage's tempId (so we can look it up in serverIdMap.stages)
+  // or null for a brand-new stage. Same for choices, but as a nested array.
+  // We pass these explicitly so the server doesn't have to guess.
+  stageTempIds: Array<{
+    tempId: string;
+    isNew: boolean;
+    choiceTempIds: Array<{ tempId: string; isNew: boolean }>;
   }>;
 }
 
 export type UpdateCaseResult = { ok: true } | { ok: false; error: string };
 
-export async function updateCaseText(
-  edit: TextEdit
+export async function updateCase(
+  input: UpdateCaseInput
 ): Promise<UpdateCaseResult> {
   await requireRole("admin");
 
-  if (!edit.title.trim()) return { ok: false, error: "Title is required." };
-  // linkedDiagnosisSlug optional; validate shape only when provided.
-  if (
-    edit.linkedDiagnosisSlug.trim() &&
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(edit.linkedDiagnosisSlug.trim())
-  ) {
-    return {
-      ok: false,
-      error: "Linked diagnosis slug must be lowercase kebab-case.",
-    };
+  const { caseId, draft, serverIdMap, stageTempIds } = input;
+
+  const error = validate(draft);
+  if (error) return { ok: false, error };
+
+  if (stageTempIds.length !== draft.stages.length) {
+    return { ok: false, error: "Internal: stage index mismatch." };
   }
+  for (let i = 0; i < draft.stages.length; i++) {
+    if (
+      stageTempIds[i].choiceTempIds.length !== draft.stages[i].choices.length
+    ) {
+      return { ok: false, error: "Internal: choice index mismatch." };
+    }
+  }
+
+  // Compute removed stage / choice ids by diffing the draft against the
+  // serverIdMap snapshot from when the editor loaded.
+  const keptStageIds = new Set(
+    stageTempIds
+      .filter((s) => !s.isNew)
+      .map((s) => serverIdMap.stages[s.tempId])
+      .filter(Boolean)
+  );
+  const removedStageIds = Object.values(serverIdMap.stages).filter(
+    (id) => !keptStageIds.has(id)
+  );
 
   try {
     await db.transaction(async (tx) => {
+      // ---------------- case row ----------------
       await tx
         .update(cases)
         .set({
-          title: edit.title.trim(),
-          description: edit.description.trim() || null,
-          scenarioIntro: edit.scenarioIntro.trim() || null,
-          linkedDiagnosisSlug: edit.linkedDiagnosisSlug.trim() || null,
-          clinicalTakeaway: edit.clinicalTakeaway.trim() || null,
+          title: draft.title.trim(),
+          description: draft.description.trim() || null,
+          scenarioIntro: draft.scenarioIntro.trim() || null,
+          linkedDiagnosisSlug: draft.linkedDiagnosisSlug.trim() || null,
+          clinicalTakeaway: draft.clinicalTakeaway.trim() || null,
+          quizQuestionCount: draft.quizQuestionCount,
         })
-        .where(and(eq(cases.id, edit.caseId), isNull(cases.deletedAt)));
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)));
 
-      for (const s of edit.stageEdits) {
-        await tx
-          .update(stages)
-          .set({ prompt: s.prompt.trim() })
-          .where(
-            and(eq(stages.id, s.stageId), eq(stages.caseId, edit.caseId))
+      // ---------------- levels: replace ----------------
+      await tx
+        .delete(caseLevelConfig)
+        .where(eq(caseLevelConfig.caseId, caseId));
+      if (draft.levels.length > 0) {
+        await tx.insert(caseLevelConfig).values(
+          draft.levels.map((l) => ({
+            caseId,
+            level: l.level,
+            treatmentEnabled: l.treatmentEnabled,
+          }))
+        );
+      }
+
+      // ---------------- stages: delete removed ----------------
+      if (removedStageIds.length > 0) {
+        // FK from stage_attempts.stage_id is onDelete: restrict, so we have
+        // to refuse the whole save if any removed stage already has
+        // attempts. Better to fail clean than mid-transaction.
+        const blockers = await tx
+          .select({ stageId: stageAttempts.stageId })
+          .from(stageAttempts)
+          .where(inArray(stageAttempts.stageId, removedStageIds))
+          .limit(1);
+        if (blockers.length > 0) {
+          throw new Error(
+            "Can't remove a stage that students have already attempted. Unpublish + remove attempts first, or keep the stage."
           );
+        }
+        await tx.delete(stages).where(inArray(stages.id, removedStageIds));
+      }
 
-        for (const c of s.choices) {
+      // ---------------- stages: shift positions out of the way ----------------
+      // stages_case_position_uq is unique on (case_id, position), so swap
+      // every kept stage to a negative position first; then we can assign
+      // final positions without UNIQUE conflicts.
+      await tx
+        .update(stages)
+        .set({ position: sql`-${stages.position} - 1` })
+        .where(eq(stages.caseId, caseId));
+
+      // ---------------- stages: upsert + reletter choices ----------------
+      for (let i = 0; i < draft.stages.length; i++) {
+        const stage = draft.stages[i];
+        const meta = stageTempIds[i];
+        const existingStageId =
+          !meta.isNew && serverIdMap.stages[meta.tempId]
+            ? serverIdMap.stages[meta.tempId]
+            : null;
+
+        let stageId: string;
+        if (existingStageId) {
           await tx
-            .update(choices)
+            .update(stages)
             .set({
-              text: c.text.trim(),
-              responseText: c.responseText.trim() || null,
+              position: i,
+              type: stage.type,
+              prompt: stage.prompt.trim(),
+              maxPicks: stage.maxPicks,
+              imageUrl: stage.imageUrl,
             })
             .where(
-              and(eq(choices.id, c.choiceId), eq(choices.stageId, s.stageId))
+              and(eq(stages.id, existingStageId), eq(stages.caseId, caseId))
             );
+          stageId = existingStageId;
+        } else {
+          const [inserted] = await tx
+            .insert(stages)
+            .values({
+              caseId,
+              position: i,
+              type: stage.type,
+              prompt: stage.prompt.trim(),
+              maxPicks: stage.maxPicks,
+              imageUrl: stage.imageUrl,
+            })
+            .returning({ id: stages.id });
+          stageId = inserted.id;
+        }
+
+        // -------- choices for this stage --------
+        const keptChoiceIds = new Set(
+          meta.choiceTempIds
+            .filter((c) => !c.isNew)
+            .map((c) => serverIdMap.choices[c.tempId])
+            .filter(Boolean)
+        );
+
+        // Find existing choices for this stage and delete any that aren't
+        // kept. (FK from stage_attempts.picks is JSONB, not enforced — old
+        // attempts just lose that pick from the feedback breakdown.)
+        const existingChoices = await tx
+          .select({ id: choices.id })
+          .from(choices)
+          .where(eq(choices.stageId, stageId));
+        const toDelete = existingChoices
+          .map((c) => c.id)
+          .filter((id) => !keptChoiceIds.has(id));
+        if (toDelete.length > 0) {
+          await tx.delete(choices).where(inArray(choices.id, toDelete));
+        }
+
+        // Upsert each choice in draft order, re-lettering A..Z.
+        for (let j = 0; j < stage.choices.length; j++) {
+          const c = stage.choices[j];
+          const cMeta = meta.choiceTempIds[j];
+          const existingChoiceId =
+            !cMeta.isNew && serverIdMap.choices[cMeta.tempId]
+              ? serverIdMap.choices[cMeta.tempId]
+              : null;
+
+          const scoreToStore = BINARY_STAGES.has(stage.type)
+            ? // For binary stages, we want the per-choice score the admin
+              // set (so weighted scoring works). Default to 1 for correct,
+              // 0 for incorrect when score wasn't explicitly given.
+              c.score > 0
+              ? c.score
+              : c.isCorrect
+                ? 1
+                : 0
+            : c.score;
+
+          if (existingChoiceId) {
+            await tx
+              .update(choices)
+              .set({
+                letter: letterFor(j),
+                text: c.text.trim(),
+                score: scoreToStore,
+                isCorrect: c.isCorrect,
+                responseText: c.responseText.trim() || null,
+                displayOrder: j,
+              })
+              .where(
+                and(
+                  eq(choices.id, existingChoiceId),
+                  eq(choices.stageId, stageId)
+                )
+              );
+          } else {
+            await tx.insert(choices).values({
+              stageId,
+              letter: letterFor(j),
+              text: c.text.trim(),
+              score: scoreToStore,
+              isCorrect: c.isCorrect,
+              responseText: c.responseText.trim() || null,
+              displayOrder: j,
+            });
+          }
         }
       }
     });
   } catch (err) {
-    console.error("[admin/cases/updateCaseText]", err);
-    return { ok: false, error: "Failed to save changes." };
+    console.error("[admin/cases/updateCase]", err);
+    const message =
+      err instanceof Error && err.message ? err.message : "Failed to save.";
+    return { ok: false, error: message };
   }
 
-  revalidatePath(`/admin/cases/${edit.caseId}`);
+  revalidatePath(`/admin/cases/${caseId}`);
   revalidatePath("/admin/cases");
+  revalidatePath("/admin");
   return { ok: true };
 }
 
