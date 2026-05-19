@@ -23,14 +23,26 @@ export function ReleaseToggle({
     const next = !released;
     setReleased(next); // optimistic
     startTransition(async () => {
-      const result = await toggleCaseRelease({
-        classroomId,
-        caseId,
-        release: next,
-      });
-      if (!result.ok) {
-        setReleased(!next); // rollback
-        setError(result.error);
+      try {
+        const result = await toggleCaseRelease({
+          classroomId,
+          caseId,
+          release: next,
+        });
+        if (!result.ok) {
+          setReleased(!next); // rollback
+          setError(result.error);
+        }
+      } catch (err) {
+        // Server action threw (auth expired, network, etc.) — without this
+        // catch the optimistic UI would lock in the wrong state and the
+        // user would think it persisted.
+        setReleased(!next);
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not update release. Refresh and try again."
+        );
       }
     });
   };

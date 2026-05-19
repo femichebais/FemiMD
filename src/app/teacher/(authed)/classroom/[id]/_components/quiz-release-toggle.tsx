@@ -23,14 +23,23 @@ export function QuizReleaseToggle({
     const next = !released;
     setReleased(next); // optimistic
     startTransition(async () => {
-      const result = await toggleQuizRelease({
-        classroomId,
-        quizId,
-        release: next,
-      });
-      if (!result.ok) {
+      try {
+        const result = await toggleQuizRelease({
+          classroomId,
+          quizId,
+          release: next,
+        });
+        if (!result.ok) {
+          setReleased(!next);
+          setError(result.error);
+        }
+      } catch (err) {
         setReleased(!next);
-        setError(result.error);
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not update release. Refresh and try again."
+        );
       }
     });
   };

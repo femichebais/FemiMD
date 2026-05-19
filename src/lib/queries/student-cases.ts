@@ -9,6 +9,7 @@ import {
   students,
   stages,
   choices,
+  quizAttempts,
   studentCaseGrants,
   type Case,
   type Stage,
@@ -183,34 +184,30 @@ export async function listStudentDashboard(
     )
     .groupBy(caseAttempts.caseId);
 
-  // Has the student taken the post-quiz for each case?
-  const postQuizzes = await db
-    .select({
-      caseId: cases.id,
-      hasPost: sql<boolean>`EXISTS (
-        SELECT 1 FROM ${cases} c2
-        WHERE c2.id = ${cases.id}
-        AND EXISTS (
-          SELECT 1 FROM ${caseAttempts} ca
-          WHERE ca.case_id = c2.id
-        )
-      )`,
-    })
-    .from(cases)
-    .where(inArray(cases.id, caseIds));
-  void postQuizzes; // not used; left for clarity if we need it
-
-  // Direct post-quiz lookup
-  const postAttempts = caseIds.length === 0 ? [] : await db.execute(sql`
-    SELECT DISTINCT case_id FROM quiz_attempts
-    WHERE student_id = ${studentId}
-      AND scope = 'post'
-      AND case_id = ANY(${caseIds})
-  `);
+  // Which released cases has the student already taken the post-quiz for?
+  // Used to mark completion state below.
+  //
+  // We use drizzle's inArray() instead of a raw `case_id = ANY(${caseIds})`
+  // template: postgres.js (the driver) serializes a JS array as a comma
+  // string for raw SQL params, which Postgres rejects with "malformed array
+  // literal". inArray() expands to `case_id IN ($1, $2, ...)` with each id
+  // as its own parameter.
+  const postAttemptRows =
+    caseIds.length === 0
+      ? []
+      : await db
+          .selectDistinct({ caseId: quizAttempts.caseId })
+          .from(quizAttempts)
+          .where(
+            and(
+              eq(quizAttempts.studentId, studentId),
+              eq(quizAttempts.scope, "post"),
+              isNotNull(quizAttempts.caseId),
+              inArray(quizAttempts.caseId, caseIds)
+            )
+          );
   const postCaseIds = new Set(
-    (postAttempts as unknown as Array<{ case_id: string }>).map(
-      (r) => r.case_id
-    )
+    postAttemptRows.map((r) => r.caseId).filter((id): id is string => !!id)
   );
 
   const statsByCase = new Map(stats.map((s) => [s.caseId, s]));
