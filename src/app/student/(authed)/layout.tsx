@@ -68,6 +68,12 @@ export default async function StudentAuthedLayout({
           )}
         </div>
         <div className="flex items-center gap-4 text-[13px]">
+          <Link
+            href="/student/library"
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink transition-colors"
+          >
+            Library
+          </Link>
           <SignOutButton />
           <span className="text-ink-mute">{displayName}</span>
           <span

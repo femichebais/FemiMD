@@ -6,11 +6,19 @@ import type { LibraryTocEntry } from "@/lib/queries/library";
 
 export interface LibraryTocProps {
   entries: LibraryTocEntry[];
+  // Path prefix the slug is appended to. Defaults to the student tree;
+  // /teacher/library passes its own prefix.
+  basePath?: string;
+  emptyMessage?: string;
 }
 
 // Editorial sidebar — same pattern as the mockup's "Diagnoses" TOC.
 // Current item gets the thin accent left-border + ink color.
-export function LibraryToc({ entries }: LibraryTocProps) {
+export function LibraryToc({
+  entries,
+  basePath = "/student/library",
+  emptyMessage = "No pages tagged for your level yet.",
+}: LibraryTocProps) {
   const pathname = usePathname();
 
   return (
@@ -20,12 +28,12 @@ export function LibraryToc({ entries }: LibraryTocProps) {
       </div>
       {entries.length === 0 ? (
         <p className="font-serif italic text-[14px] text-ink-mute">
-          No pages tagged for your level yet.
+          {emptyMessage}
         </p>
       ) : (
         <ul className="flex flex-col gap-[2px]">
           {entries.map((entry) => {
-            const href = `/student/library/${entry.slug}`;
+            const href = `${basePath}/${entry.slug}`;
             const active = pathname === href;
             return (
               <li key={entry.id}>

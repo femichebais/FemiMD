@@ -79,6 +79,37 @@ export async function getLibraryPageForStudent(
 }
 
 // =============================================================================
+// Teacher queries — teachers see every non-deleted library page regardless
+// of level. They review across cohorts and benefit from full visibility.
+// =============================================================================
+
+export async function listLibraryForTeacher(): Promise<LibraryTocEntry[]> {
+  return await db
+    .select({
+      id: libraryPages.id,
+      slug: libraryPages.diagnosisSlug,
+      title: libraryPages.title,
+      eyebrow: libraryPages.eyebrow,
+    })
+    .from(libraryPages)
+    .where(isNull(libraryPages.deletedAt))
+    .orderBy(asc(libraryPages.title));
+}
+
+export async function getLibraryPageForTeacher(
+  slug: string
+): Promise<LibraryPage | null> {
+  const [row] = await db
+    .select()
+    .from(libraryPages)
+    .where(
+      and(eq(libraryPages.diagnosisSlug, slug), isNull(libraryPages.deletedAt))
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+// =============================================================================
 // Admin queries — RLS-bypassed via Drizzle. Callers must requireRole('admin').
 // =============================================================================
 
