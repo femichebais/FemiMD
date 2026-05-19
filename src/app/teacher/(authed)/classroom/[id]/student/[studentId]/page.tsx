@@ -14,7 +14,11 @@ interface QuizAggregate {
   attemptCount: number;
   bestPct: number;
   latestPct: number;
+  avgPct: number;
   latestAt: Date;
+  // Running totals so we can recompute avg as we add more attempts.
+  _sumScore: number;
+  _sumQuestions: number;
 }
 
 function aggregateQuizAttempts(
@@ -32,6 +36,12 @@ function aggregateQuizAttempts(
     if (existing) {
       existing.attemptCount += 1;
       existing.bestPct = Math.max(existing.bestPct, pct);
+      existing._sumScore += q.score;
+      existing._sumQuestions += q.questionCount;
+      existing.avgPct =
+        existing._sumQuestions === 0
+          ? 0
+          : Math.round((existing._sumScore / existing._sumQuestions) * 100);
       if (completedAt > existing.latestAt) {
         existing.latestAt = completedAt;
         existing.latestPct = pct;
@@ -44,7 +54,10 @@ function aggregateQuizAttempts(
         attemptCount: 1,
         bestPct: pct,
         latestPct: pct,
+        avgPct: pct,
         latestAt: completedAt,
+        _sumScore: q.score,
+        _sumQuestions: q.questionCount,
       });
     }
   }
@@ -166,7 +179,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-[1fr_80px_90px_90px_90px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
+          <div className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
               Quiz
             </span>
@@ -180,6 +193,9 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
               Best
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Avg
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
               Latest
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
@@ -190,7 +206,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             {aggregateQuizAttempts(quizAttempts).map((g) => (
               <li
                 key={g.key}
-                className="grid grid-cols-[1fr_80px_90px_90px_90px_110px] items-baseline gap-6 py-3 border-b border-rule"
+                className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-rule"
               >
                 <span className="font-serif text-[16px] text-ink truncate">
                   {g.caseTitle}
@@ -203,6 +219,9 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                 </span>
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                   {g.bestPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                  {g.avgPct}%
                 </span>
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
                   {g.latestPct}%

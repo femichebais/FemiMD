@@ -108,13 +108,6 @@ function CaseGroup({
                 {c.attemptCount} attempt
                 {c.attemptCount === 1 ? "" : "s"}
               </span>
-              <span aria-hidden>·</span>
-              <Link
-                href={`/student/case/${c.id}/quiz/pre`}
-                className="hover:text-ink transition-colors"
-              >
-                Pre-test →
-              </Link>
               {c.state === "completed" && (
                 <>
                   <span aria-hidden>·</span>
