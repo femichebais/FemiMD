@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, and, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { cases, stages, choices } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
@@ -7,26 +7,36 @@ import { CasePlayer } from "@/app/student/(authed)/case/[id]/_components/case-pl
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ back?: string | string[] }>;
 }
 
-// Admin walk-through of a case. Renders the same CasePlayer the student
-// sees, but with previewMode=true so no attempt rows are created, no scores
-// are persisted, and the final Continue returns to the editor.
+// Teacher walk-through of a published case. Mirrors the admin preview at
+// /admin/cases/[id]/preview but role-gates to 'teacher' and only allows
+// previewing published cases (drafts are still admin-only).
 //
-// Why this is OK with our access model: requireRole('admin') gates entry,
-// and CasePlayer in preview mode never invokes any of the student-scoped
-// server actions, so RLS / release / level checks don't apply.
-export default async function CasePreviewPage({ params }: PageProps) {
+// Back link defaults to /teacher; pass ?back=/teacher/classroom/<id> from
+// the link in a classroom page to bounce back there.
+export default async function TeacherCasePreviewPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
-  await requireRole("admin");
+  const sp = await searchParams;
+  await requireRole("teacher");
+
+  const back = typeof sp.back === "string" ? sp.back : "/teacher";
+  // Defense-in-depth: only allow same-origin relative paths.
+  const safeBack = back.startsWith("/") ? back : "/teacher";
 
   const [theCase] = await db
     .select()
     .from(cases)
-    .where(eq(cases.id, id))
+    .where(
+      and(eq(cases.id, id), isNull(cases.deletedAt), isNotNull(cases.publishedAt))
+    )
     .limit(1);
 
-  if (!theCase || theCase.deletedAt) notFound();
+  if (!theCase) notFound();
 
   const stageRows = await db
     .select()
@@ -51,7 +61,7 @@ export default async function CasePreviewPage({ params }: PageProps) {
       stages={stageRows}
       choices={choiceRows}
       previewMode
-      previewReturnHref={`/admin/cases/${id}`}
+      previewReturnHref={safeBack}
     />
   );
 }

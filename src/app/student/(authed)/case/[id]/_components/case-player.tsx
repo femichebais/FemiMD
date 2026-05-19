@@ -40,11 +40,14 @@ export interface CasePlayerProps {
   caseData: Case;
   stages: Stage[];
   choices: Choice[];
-  // When true (admin preview), all server actions are skipped. The player
-  // works as a UI walkthrough — picks + responses + advance — but never
-  // creates a case_attempts row or persists stage_attempts. Final Continue
-  // navigates back to the editor instead of to a feedback page.
+  // When true (admin or teacher preview), all server actions are skipped.
+  // The player works as a UI walkthrough — picks + responses + advance —
+  // but never creates a case_attempts row or persists stage_attempts.
+  // Final stage shows the in-memory scoring report.
   previewMode?: boolean;
+  // Where the "Back" links inside the preview UI should go. Defaults to
+  // the admin editor; teacher preview overrides this.
+  previewReturnHref?: string;
 }
 
 export function CasePlayer({
@@ -53,7 +56,9 @@ export function CasePlayer({
   stages,
   choices,
   previewMode = false,
+  previewReturnHref,
 }: CasePlayerProps) {
+  const backHref = previewReturnHref ?? `/admin/cases/${caseId}`;
   const router = useRouter();
   const [stageIndex, setStageIndex] = useState(0);
   const [picks, setPicks] = useState<Pick[]>([]);
@@ -209,7 +214,7 @@ export function CasePlayer({
   if (showPreviewFeedback) {
     return (
       <PreviewFeedback
-        caseId={caseId}
+        backHref={backHref}
         caseData={caseData}
         stages={stages}
         choices={choices}
@@ -238,10 +243,10 @@ export function CasePlayer({
               </div>
             </div>
             <a
-              href={`/admin/cases/${caseId}`}
+              href={backHref}
               className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
             >
-              ← Back to editor
+              ← Back
             </a>
           </div>
         )}
@@ -361,14 +366,14 @@ export function CasePlayer({
 // feedback page (src/app/student/(authed)/case/[id]/feedback/page.tsx) but
 // builds the breakdown from local picks instead of a real attempt row.
 function PreviewFeedback({
-  caseId,
+  backHref,
   caseData,
   stages,
   choices,
   picksByStageId,
   onRetry,
 }: {
-  caseId: string;
+  backHref: string;
   caseData: Case;
   stages: Stage[];
   choices: Choice[];
@@ -421,10 +426,10 @@ function PreviewFeedback({
             </div>
           </div>
           <a
-            href={`/admin/cases/${caseId}`}
+            href={backHref}
             className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink whitespace-nowrap"
           >
-            ← Back to editor
+            ← Back
           </a>
         </div>
 

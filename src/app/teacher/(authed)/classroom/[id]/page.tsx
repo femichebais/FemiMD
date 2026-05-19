@@ -155,7 +155,7 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
           {availableCases.map((c) => (
             <li
               key={c.id}
-              className="grid grid-cols-[1fr_140px_140px] items-center gap-6 py-4 border-b border-rule"
+              className="grid grid-cols-[1fr_140px_80px_140px] items-center gap-6 py-4 border-b border-rule"
             >
               <span className="font-serif text-[17px] text-ink">{c.title}</span>
               <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
@@ -166,6 +166,12 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                     }).format(new Date(c.releasedAt))}`
                   : ""}
               </span>
+              <Link
+                href={`/teacher/case/${c.id}/preview?back=/teacher/classroom/${id}`}
+                className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border border-rule-strong px-3 py-2 rounded-[2px] transition-colors whitespace-nowrap"
+              >
+                Preview
+              </Link>
               <span className="justify-self-end">
                 <ReleaseToggle
                   classroomId={id}
