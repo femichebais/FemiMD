@@ -66,6 +66,62 @@ function aggregateQuizAttempts(
   );
 }
 
+interface CaseAggregate {
+  caseId: string;
+  caseTitle: string;
+  attemptCount: number;
+  bestPct: number;
+  latestPct: number;
+  avgPct: number;
+  latestAt: Date;
+  _sumScore: number;
+  _sumMax: number;
+}
+
+function aggregateCaseAttempts(
+  attempts: StudentDetail["attempts"]
+): CaseAggregate[] {
+  const grouped = new Map<string, CaseAggregate>();
+  for (const a of attempts) {
+    // Caller filters to completed; defensive guard anyway.
+    if (a.completedAt === null) continue;
+    const score = a.totalScore ?? 0;
+    const max = a.caseMaxPossible;
+    const pct = max === 0 ? 0 : Math.round((score / max) * 100);
+    const completedAt = new Date(a.completedAt);
+    const existing = grouped.get(a.caseId);
+    if (existing) {
+      existing.attemptCount += 1;
+      existing.bestPct = Math.max(existing.bestPct, pct);
+      existing._sumScore += score;
+      existing._sumMax += max;
+      existing.avgPct =
+        existing._sumMax === 0
+          ? 0
+          : Math.round((existing._sumScore / existing._sumMax) * 100);
+      if (completedAt > existing.latestAt) {
+        existing.latestAt = completedAt;
+        existing.latestPct = pct;
+      }
+    } else {
+      grouped.set(a.caseId, {
+        caseId: a.caseId,
+        caseTitle: a.caseTitle,
+        attemptCount: 1,
+        bestPct: pct,
+        latestPct: pct,
+        avgPct: pct,
+        latestAt: completedAt,
+        _sumScore: score,
+        _sumMax: max,
+      });
+    }
+  }
+  return [...grouped.values()].sort(
+    (a, b) => b.latestAt.getTime() - a.latestAt.getTime()
+  );
+}
+
 const TYPE_LABEL: Record<string, string> = {
   history: "History",
   exam: "Exam",
@@ -172,7 +228,129 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </ul>
       )}
 
+      <StageLabel className="mb-5">Case analytics</StageLabel>
+      {attempts.length === 0 ? (
+        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
+          No completed cases to summarize.
+        </p>
+      ) : (
+        <div className="mb-14">
+          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              Case
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Attempts
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Best
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Avg
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Latest
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Last taken
+            </span>
+          </div>
+          <ul>
+            {aggregateCaseAttempts(attempts).map((g) => (
+              <li
+                key={g.caseId}
+                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-rule"
+              >
+                <span className="font-serif text-[16px] text-ink truncate">
+                  {g.caseTitle}
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.attemptCount}
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.bestPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                  {g.avgPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                  {g.latestPct}%
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                  {new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  }).format(g.latestAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <StageLabel className="mb-5">Quiz attempts</StageLabel>
+      {quizAttempts.length === 0 ? (
+        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
+          No quizzes taken yet.
+        </p>
+      ) : (
+        <div className="mb-14">
+          <div className="grid grid-cols-[1fr_80px_90px_80px_140px] items-baseline gap-6 pb-3 border-b border-rule-strong">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              Quiz
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              Scope
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Score
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              %
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+              Taken
+            </span>
+          </div>
+          <ul>
+            {quizAttempts.map((q) => {
+              const pct =
+                q.questionCount === 0
+                  ? 0
+                  : Math.round((q.score / q.questionCount) * 100);
+              return (
+                <li
+                  key={q.id}
+                  className="grid grid-cols-[1fr_80px_90px_80px_140px] items-baseline gap-6 py-3 border-b border-rule"
+                >
+                  <span className="font-serif text-[16px] text-ink truncate">
+                    {q.caseTitle ?? "Quiz"}
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
+                    {q.scope}-test
+                  </span>
+                  <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                    {q.score} / {q.questionCount}
+                  </span>
+                  <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                    {pct}%
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                    {new Intl.DateTimeFormat("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    }).format(new Date(q.completedAt))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      <StageLabel className="mb-5">Quiz analytics</StageLabel>
       {quizAttempts.length === 0 ? (
         <p className="font-serif italic text-[16px] text-ink-mute">
           No quizzes taken yet.

@@ -9,6 +9,7 @@ import {
   caseAttempts,
   stageAttempts,
   stages,
+  choices,
   quizAttempts,
   quizzes,
   quizReleases,
@@ -256,6 +257,10 @@ export interface StudentDetail {
     startedAt: Date;
     completedAt: Date | null;
     totalScore: number | null;
+    // Sum of top-maxPicks choice scores per stage, summed across stages.
+    // Same for every attempt of the same case, but we attach it per-attempt
+    // so the renderer doesn't need a separate map lookup.
+    caseMaxPossible: number;
     // Per-stage breakdown for the most recent completed attempt
     stages: Array<{
       stageId: string;
@@ -351,6 +356,50 @@ export async function getStudentDetailForTeacher(
     stagesByAttempt.set(s.attemptId, arr);
   }
 
+  // Max-possible per case = sum over stages of (top-maxPicks choice scores).
+  // Only compute for cases the student actually attempted.
+  const attemptedCaseIds = [...new Set(attemptRows.map((a) => a.caseId))];
+  const stageChoiceRows =
+    attemptedCaseIds.length === 0
+      ? []
+      : await db
+          .select({
+            caseId: stages.caseId,
+            stageId: stages.id,
+            maxPicks: stages.maxPicks,
+            score: choices.score,
+          })
+          .from(stages)
+          .innerJoin(choices, eq(choices.stageId, stages.id))
+          .where(inArray(stages.caseId, attemptedCaseIds));
+
+  // Bucket by stageId so we can compute per-stage max independently.
+  const stageBuckets = new Map<
+    string,
+    { caseId: string; maxPicks: number; scores: number[] }
+  >();
+  for (const r of stageChoiceRows) {
+    const b = stageBuckets.get(r.stageId);
+    if (b) {
+      b.scores.push(r.score);
+    } else {
+      stageBuckets.set(r.stageId, {
+        caseId: r.caseId,
+        maxPicks: r.maxPicks,
+        scores: [r.score],
+      });
+    }
+  }
+  const caseMaxByCaseId = new Map<string, number>();
+  for (const b of stageBuckets.values()) {
+    const top = [...b.scores].sort((x, y) => y - x).slice(0, b.maxPicks);
+    const stageMax = top.reduce((s, n) => s + n, 0);
+    caseMaxByCaseId.set(
+      b.caseId,
+      (caseMaxByCaseId.get(b.caseId) ?? 0) + stageMax
+    );
+  }
+
   const quizRows = await db
     .select({
       id: quizAttempts.id,
@@ -379,6 +428,7 @@ export async function getStudentDetailForTeacher(
     },
     attempts: attemptRows.map((a) => ({
       ...a,
+      caseMaxPossible: caseMaxByCaseId.get(a.caseId) ?? 0,
       stages:
         stagesByAttempt.get(a.id)?.map((s) => ({
           stageId: s.stageId,
