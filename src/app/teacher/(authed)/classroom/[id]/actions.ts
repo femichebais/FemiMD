@@ -1,10 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { classrooms, caseReleases, quizReleases } from "@/db/schema";
+import {
+  classrooms,
+  caseReleases,
+  quizReleases,
+  students,
+} from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type ToggleResult = { ok: true } | { ok: false; error: string };
 
@@ -116,4 +123,94 @@ export async function toggleQuizRelease(args: {
   revalidatePath(`/teacher/classroom/${args.classroomId}`);
   revalidatePath("/teacher");
   return { ok: true };
+}
+
+// =============================================================================
+// deleteClassroom — teacher soft-deletes their own classroom
+// =============================================================================
+// Soft-deletes the classroom row + tombstones every enrolled student so they
+// can't sign in anymore. Existing case + quiz attempt history is kept so
+// any admin-level analytics remain consistent. Auth emails are rotated to
+// .invalid so the addresses can be reused if the admin re-invites later.
+
+export interface DeleteClassroomState {
+  error?: string;
+}
+
+export async function deleteClassroom(
+  _prevState: DeleteClassroomState,
+  formData: FormData
+): Promise<DeleteClassroomState> {
+  const { user } = await requireRole("teacher");
+  const classroomId = String(formData.get("classroomId") ?? "");
+  if (!classroomId) return { error: "Missing classroom id." };
+
+  // Ownership check — must belong to this teacher and not be already deleted.
+  const [classroom] = await db
+    .select({ id: classrooms.id })
+    .from(classrooms)
+    .where(
+      and(
+        eq(classrooms.id, classroomId),
+        eq(classrooms.teacherId, user.id),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .limit(1);
+  if (!classroom) return { error: "Classroom not found." };
+
+  let studentIds: string[] = [];
+  try {
+    studentIds = await db.transaction(async (tx) => {
+      // 1. Soft-delete the classroom itself.
+      await tx
+        .update(classrooms)
+        .set({ deletedAt: new Date() })
+        .where(eq(classrooms.id, classroomId));
+
+      // 2. Soft-delete every enrolled student. Returning their ids so we can
+      //    tombstone their auth emails outside the transaction.
+      const tombstoned = await tx
+        .update(students)
+        .set({ deletedAt: new Date() })
+        .where(
+          and(
+            eq(students.classroomId, classroomId),
+            isNull(students.deletedAt)
+          )
+        )
+        .returning({ id: students.id });
+      return tombstoned.map((s) => s.id);
+    });
+  } catch (err) {
+    console.error("[teacher/deleteClassroom]", err);
+    return { error: "Could not delete classroom." };
+  }
+
+  // 3. Tombstone each student's auth email so the address can be reused if
+  //    the admin invites a fresh account at the same email later. Non-fatal
+  //    per-student — DB soft-delete already succeeded.
+  if (studentIds.length > 0) {
+    const admin = createSupabaseAdminClient();
+    await Promise.all(
+      studentIds.map(async (id) => {
+        const tombstone = `deleted-${Date.now()}-${id.slice(0, 8)}@deleted.invalid`;
+        const { error } = await admin.auth.admin.updateUserById(id, {
+          email: tombstone,
+          email_confirm: true,
+        });
+        if (error) {
+          console.warn(
+            "[teacher/deleteClassroom] tombstone email failed for student",
+            id,
+            error.message
+          );
+        }
+      })
+    );
+  }
+
+  revalidatePath("/teacher");
+  revalidatePath(`/teacher/classroom/${classroomId}`);
+  redirect("/teacher");
 }

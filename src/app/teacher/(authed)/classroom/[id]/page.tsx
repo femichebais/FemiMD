@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { getClassroomDetail } from "@/lib/queries/teacher";
 import { ReleaseToggle } from "./_components/release-toggle";
 import { QuizReleaseToggle } from "./_components/quiz-release-toggle";
+import { DeleteClassroomButton } from "./_components/delete-classroom-button";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
@@ -44,12 +45,19 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
             {classroom.name}
           </h1>
         </div>
-        <Link
-          href="/teacher"
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
-        >
-          ← All classrooms
-        </Link>
+        <div className="flex items-center gap-5">
+          <DeleteClassroomButton
+            classroomId={classroom.id}
+            classroomName={classroom.name}
+          />
+          <span aria-hidden className="h-5 w-px bg-rule" />
+          <Link
+            href="/teacher"
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+          >
+            ← All classrooms
+          </Link>
+        </div>
       </div>
 
       {/* Invite link */}
@@ -74,10 +82,16 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
         <dl className="flex flex-wrap gap-x-10 gap-y-4">
           <Stat label="Students" value={topline.studentCount} />
           <Stat label="Cases released" value={topline.releasedCaseCount} />
-          <Stat label="Total attempts" value={topline.totalAttempts} />
+          <Stat label="Case attempts" value={topline.totalAttempts} />
           <Stat
-            label="Avg completion"
+            label="Case completion"
             value={`${Math.round(topline.avgCompletion * 100)}%`}
+          />
+          <Stat label="Quizzes released" value={topline.releasedQuizCount} />
+          <Stat label="Quiz attempts" value={topline.totalQuizAttempts} />
+          <Stat
+            label="Quiz completion"
+            value={`${Math.round(topline.quizCompletion * 100)}%`}
           />
         </dl>
       </section>

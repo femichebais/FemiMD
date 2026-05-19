@@ -5,6 +5,7 @@ import {
   listAllStudents,
   type AdminStudentRow,
 } from "@/lib/queries/admin-students";
+import { DeleteStudentButton } from "./delete-student-button";
 
 export const metadata: Metadata = { title: "Students" };
 
@@ -64,6 +65,7 @@ export default async function AdminStudentsPage() {
                 <th className="text-right py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
                   Completed
                 </th>
+                <th className="py-3" />
               </tr>
             </thead>
             <tbody>
@@ -99,6 +101,12 @@ export default async function AdminStudentsPage() {
                   </td>
                   <td className="py-4 text-right font-mono text-[13px] tabular-nums">
                     {s.completedCount}
+                  </td>
+                  <td className="py-4 text-right">
+                    <DeleteStudentButton
+                      studentId={s.id}
+                      studentName={s.name}
+                    />
                   </td>
                 </tr>
               ))}

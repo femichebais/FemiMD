@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Button, StageLabel } from "@/components/ui";
 import { listAllQuizzes, type AdminQuizRow } from "@/lib/queries/quiz";
+import { DeleteQuizButton } from "./delete-quiz-button";
 
 export const metadata: Metadata = { title: "Quizzes" };
 
@@ -47,7 +48,7 @@ export default async function AdminQuizzesPage() {
           {rows.map((q) => (
             <li
               key={q.id}
-              className="grid grid-cols-[1fr_160px_120px_100px] items-baseline gap-6 py-5 border-b border-rule"
+              className="grid grid-cols-[1fr_160px_120px_100px_80px] items-baseline gap-6 py-5 border-b border-rule"
             >
               <Link
                 href={`/admin/quizzes/${q.id}`}
@@ -72,6 +73,9 @@ export default async function AdminQuizzesPage() {
               >
                 Manage
               </Link>
+              <span className="justify-self-end">
+                <DeleteQuizButton quizId={q.id} quizTitle={q.title} />
+              </span>
             </li>
           ))}
         </ul>

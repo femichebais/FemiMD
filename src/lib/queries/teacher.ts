@@ -97,6 +97,11 @@ export interface ClassroomDetail {
     releasedCaseCount: number;
     totalAttempts: number;
     avgCompletion: number; // 0..1
+    releasedQuizCount: number;
+    totalQuizAttempts: number;
+    // Fraction of (student, released-quiz) pairs that have at least one
+    // attempt. 0 if no students or no quizzes released.
+    quizCompletion: number; // 0..1
   };
 }
 
@@ -219,6 +224,47 @@ export async function getClassroomDetail(
   const avgCompletion =
     totalCompletable === 0 ? 0 : totalCompleted / totalCompletable;
 
+  // Quiz analytics — totals across only quizzes released to this classroom
+  // and only students currently in the classroom.
+  const releasedQuizIds = availableQuizzes
+    .filter((q) => q.isReleased)
+    .map((q) => q.id);
+  const releasedQuizCount = releasedQuizIds.length;
+  const studentIds = rosterRows.map((r) => r.id);
+
+  let totalQuizAttempts = 0;
+  let quizCompletionPairs = 0;
+  if (releasedQuizIds.length > 0 && studentIds.length > 0) {
+    const [{ n: totalQ } = { n: 0 }] = await db
+      .select({ n: sql<number>`COUNT(*)::int` })
+      .from(quizAttempts)
+      .where(
+        and(
+          inArray(quizAttempts.studentId, studentIds),
+          inArray(quizAttempts.quizId, releasedQuizIds)
+        )
+      );
+    totalQuizAttempts = Number(totalQ ?? 0);
+
+    const [{ n: pairs } = { n: 0 }] = await db
+      .select({
+        n: sql<number>`COUNT(DISTINCT (${quizAttempts.studentId}::text || '|' || ${quizAttempts.quizId}::text))::int`,
+      })
+      .from(quizAttempts)
+      .where(
+        and(
+          inArray(quizAttempts.studentId, studentIds),
+          inArray(quizAttempts.quizId, releasedQuizIds)
+        )
+      );
+    quizCompletionPairs = Number(pairs ?? 0);
+  }
+  const totalQuizCompletable = studentCount * releasedQuizCount;
+  const quizCompletion =
+    totalQuizCompletable === 0
+      ? 0
+      : quizCompletionPairs / totalQuizCompletable;
+
   return {
     classroom: {
       id: classroom.id,
@@ -240,6 +286,9 @@ export async function getClassroomDetail(
       releasedCaseCount,
       totalAttempts,
       avgCompletion,
+      releasedQuizCount,
+      totalQuizAttempts,
+      quizCompletion,
     },
   };
 }
