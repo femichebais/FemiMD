@@ -193,15 +193,23 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   }).format(new Date(a.startedAt))}
                 </span>
               </div>
-              <div className="flex items-center gap-6 font-mono text-[11px] text-ink-mute mb-3">
-                {a.totalScore !== null && (
-                  <span>
-                    Score{" "}
-                    <strong className="text-accent text-[13px]">
-                      {a.totalScore}
-                    </strong>
-                  </span>
-                )}
+              <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-ink-mute mb-3">
+                <div className="flex items-center gap-6">
+                  {a.totalScore !== null && (
+                    <span>
+                      Score{" "}
+                      <strong className="text-accent text-[13px]">
+                        {a.totalScore}
+                      </strong>
+                    </span>
+                  )}
+                </div>
+                <Link
+                  href={`/teacher/classroom/${classroomId}/student/${studentId}/attempt/${a.id}`}
+                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+                >
+                  View picks →
+                </Link>
               </div>
               {a.stages.length > 0 && (
                 <ul className="border-t border-rule pt-3">
@@ -295,7 +303,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </p>
       ) : (
         <div className="mb-14">
-          <div className="grid grid-cols-[1fr_80px_90px_80px_140px] items-baseline gap-6 pb-3 border-b border-rule-strong">
+          <div className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 pb-3 border-b border-rule-strong">
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
               Quiz
             </span>
@@ -311,6 +319,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
               Taken
             </span>
+            <span />
           </div>
           <ul>
             {quizAttempts.map((q) => {
@@ -321,7 +330,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
               return (
                 <li
                   key={q.id}
-                  className="grid grid-cols-[1fr_80px_90px_80px_140px] items-baseline gap-6 py-3 border-b border-rule"
+                  className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 py-3 border-b border-rule"
                 >
                   <span className="font-serif text-[16px] text-ink truncate">
                     {q.caseTitle ?? "Quiz"}
@@ -343,6 +352,12 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                       minute: "2-digit",
                     }).format(new Date(q.completedAt))}
                   </span>
+                  <Link
+                    href={`/teacher/classroom/${classroomId}/student/${studentId}/quiz/${q.id}`}
+                    className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+                  >
+                    View →
+                  </Link>
                 </li>
               );
             })}

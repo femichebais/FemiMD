@@ -74,18 +74,8 @@ export default async function TeacherOverviewPage() {
                     {LEVEL_LABEL[c.level] ?? c.level}
                   </span>
                 </div>
-                <div className="mt-2 flex items-center gap-5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink-fade">
-                  <span>
-                    {c.studentCount} student
-                    {c.studentCount === 1 ? "" : "s"}
-                  </span>
-                  <span aria-hidden>·</span>
-                  <span>
-                    {c.releasedCaseCount} case
-                    {c.releasedCaseCount === 1 ? "" : "s"} released
-                  </span>
-                  <span aria-hidden>·</span>
-                  <span>invite {c.inviteCode}</span>
+                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink-fade">
+                  invite {c.inviteCode}
                 </div>
               </Link>
             </li>

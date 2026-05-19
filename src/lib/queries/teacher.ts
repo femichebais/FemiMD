@@ -12,9 +12,14 @@ import {
   choices,
   quizAttempts,
   quizzes,
+  quizQuestions,
+  quizChoices,
   quizReleases,
+  type Case,
+  type Choice,
   type Stage,
 } from "@/db/schema";
+import type { StageBreakdown, AttemptPick } from "./feedback";
 
 export interface TeacherClassroomRow {
   id: string;
@@ -444,3 +449,330 @@ export async function getStudentDetailForTeacher(
 
 // Suppress unused-import warning when we don't reference isNotNull elsewhere
 void isNotNull;
+
+// =============================================================================
+// Per-attempt detail (teacher viewing a single case attempt by a student)
+// =============================================================================
+
+export interface CaseAttemptDetail {
+  student: { id: string; name: string; email: string };
+  classroom: { id: string; name: string };
+  case: Case;
+  attempt: {
+    id: string;
+    startedAt: Date;
+    completedAt: Date | null;
+    totalScore: number | null;
+  };
+  // Same shape the student feedback renderer expects.
+  breakdown: StageBreakdown[];
+}
+
+function parsePicks(value: unknown): AttemptPick[] {
+  if (!Array.isArray(value)) return [];
+  const out: AttemptPick[] = [];
+  for (const v of value) {
+    if (typeof v !== "object" || v === null) continue;
+    const r = v as Record<string, unknown>;
+    if (
+      typeof r.choice_id === "string" &&
+      typeof r.pick_order === "number" &&
+      typeof r.score === "number"
+    ) {
+      out.push({
+        choice_id: r.choice_id,
+        pick_order: r.pick_order,
+        score: r.score,
+      });
+    }
+  }
+  return out;
+}
+
+// Loads a single case_attempt with all the data needed to render the same
+// breakdown the student sees. Ownership: classroom must belong to the
+// teacher, student must be in that classroom, attempt must belong to that
+// student. Returns null on any mismatch.
+export async function getCaseAttemptForTeacher(
+  teacherId: string,
+  classroomId: string,
+  studentId: string,
+  attemptId: string
+): Promise<CaseAttemptDetail | null> {
+  const [studentRow] = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      email: students.email,
+      classroomId: students.classroomId,
+      classroomName: classrooms.name,
+    })
+    .from(students)
+    .innerJoin(
+      classrooms,
+      and(
+        eq(classrooms.id, students.classroomId),
+        eq(classrooms.id, classroomId),
+        eq(classrooms.teacherId, teacherId),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .where(and(eq(students.id, studentId), isNull(students.deletedAt)))
+    .limit(1);
+  if (!studentRow) return null;
+
+  const [attemptRow] = await db
+    .select({
+      attempt: caseAttempts,
+      case: cases,
+    })
+    .from(caseAttempts)
+    .innerJoin(cases, eq(cases.id, caseAttempts.caseId))
+    .where(
+      and(
+        eq(caseAttempts.id, attemptId),
+        eq(caseAttempts.studentId, studentId)
+      )
+    )
+    .limit(1);
+  if (!attemptRow) return null;
+  if (attemptRow.case.deletedAt) return null;
+
+  const caseId = attemptRow.attempt.caseId;
+  const [stageRows, stageAttemptRows] = await Promise.all([
+    db
+      .select()
+      .from(stages)
+      .where(eq(stages.caseId, caseId))
+      .orderBy(asc(stages.position)),
+    db
+      .select()
+      .from(stageAttempts)
+      .where(eq(stageAttempts.caseAttemptId, attemptId)),
+  ]);
+
+  const stageIds = stageRows.map((s) => s.id);
+  const choiceRows: Choice[] =
+    stageIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(choices)
+          .where(inArray(choices.stageId, stageIds))
+          .orderBy(asc(choices.displayOrder));
+
+  const attemptByStage = new Map<string, (typeof stageAttemptRows)[number]>();
+  for (const sa of stageAttemptRows) attemptByStage.set(sa.stageId, sa);
+
+  const breakdown: StageBreakdown[] = stageRows.map((stage) => {
+    const stageChoices = choiceRows.filter((c) => c.stageId === stage.id);
+    const sa = attemptByStage.get(stage.id) ?? null;
+    let attempt: StageBreakdown["attempt"] = null;
+    if (sa) {
+      attempt = {
+        earnedScore: sa.earnedScore,
+        picks: parsePicks(sa.picks),
+      };
+    }
+    return { stage, choices: stageChoices, attempt };
+  });
+
+  return {
+    student: {
+      id: studentRow.id,
+      name: studentRow.name,
+      email: studentRow.email,
+    },
+    classroom: {
+      id: studentRow.classroomId,
+      name: studentRow.classroomName ?? "",
+    },
+    case: attemptRow.case,
+    attempt: {
+      id: attemptRow.attempt.id,
+      startedAt: attemptRow.attempt.startedAt,
+      completedAt: attemptRow.attempt.completedAt,
+      totalScore: attemptRow.attempt.totalScore,
+    },
+    breakdown,
+  };
+}
+
+// =============================================================================
+// Quiz attempt detail (teacher viewing one quiz attempt by a student)
+// =============================================================================
+
+export interface QuizAttemptDetail {
+  student: { id: string; name: string; email: string };
+  classroom: { id: string; name: string };
+  quiz: {
+    id: string;
+    title: string;
+    scope: "pre" | "post" | null;
+    caseTitle: string | null;
+  };
+  attempt: {
+    id: string;
+    score: number;
+    questionCount: number;
+    completedAt: Date;
+  };
+  // One entry per question in the attempt, in the same order the student saw.
+  questions: Array<{
+    id: string;
+    prompt: string;
+    choices: Array<{
+      id: string;
+      text: string;
+      isCorrect: boolean;
+    }>;
+    pickedChoiceId: string | null;
+    isCorrect: boolean;
+  }>;
+}
+
+interface QuizAnswer {
+  question_id: string;
+  choice_id: string;
+  is_correct: boolean;
+}
+
+function parseQuizAnswers(value: unknown): QuizAnswer[] {
+  if (!Array.isArray(value)) return [];
+  const out: QuizAnswer[] = [];
+  for (const v of value) {
+    if (typeof v !== "object" || v === null) continue;
+    const r = v as Record<string, unknown>;
+    if (
+      typeof r.question_id === "string" &&
+      typeof r.choice_id === "string" &&
+      typeof r.is_correct === "boolean"
+    ) {
+      out.push({
+        question_id: r.question_id,
+        choice_id: r.choice_id,
+        is_correct: r.is_correct,
+      });
+    }
+  }
+  return out;
+}
+
+export async function getQuizAttemptForTeacher(
+  teacherId: string,
+  classroomId: string,
+  studentId: string,
+  quizAttemptId: string
+): Promise<QuizAttemptDetail | null> {
+  const [studentRow] = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      email: students.email,
+      classroomId: students.classroomId,
+      classroomName: classrooms.name,
+    })
+    .from(students)
+    .innerJoin(
+      classrooms,
+      and(
+        eq(classrooms.id, students.classroomId),
+        eq(classrooms.id, classroomId),
+        eq(classrooms.teacherId, teacherId),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .where(and(eq(students.id, studentId), isNull(students.deletedAt)))
+    .limit(1);
+  if (!studentRow) return null;
+
+  const [attemptRow] = await db
+    .select({
+      attempt: quizAttempts,
+      quiz: quizzes,
+      caseTitle: cases.title,
+    })
+    .from(quizAttempts)
+    .leftJoin(quizzes, eq(quizzes.id, quizAttempts.quizId))
+    .leftJoin(cases, eq(cases.id, quizAttempts.caseId))
+    .where(
+      and(
+        eq(quizAttempts.id, quizAttemptId),
+        eq(quizAttempts.studentId, studentId)
+      )
+    )
+    .limit(1);
+  if (!attemptRow) return null;
+
+  const answers = parseQuizAnswers(attemptRow.attempt.answers);
+  const questionIds = [...new Set(answers.map((a) => a.question_id))];
+  const questionRows =
+    questionIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(quizQuestions)
+          .where(inArray(quizQuestions.id, questionIds));
+  const choiceRows =
+    questionIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(quizChoices)
+          .where(inArray(quizChoices.questionId, questionIds))
+          .orderBy(asc(quizChoices.displayOrder));
+
+  const questionById = new Map(questionRows.map((q) => [q.id, q]));
+  const choicesByQuestion = new Map<string, typeof choiceRows>();
+  for (const c of choiceRows) {
+    const arr = choicesByQuestion.get(c.questionId) ?? [];
+    arr.push(c);
+    choicesByQuestion.set(c.questionId, arr);
+  }
+
+  // Preserve the student's answer order (= the order they saw the quiz).
+  const questions: QuizAttemptDetail["questions"] = answers.map((a) => {
+    const q = questionById.get(a.question_id);
+    const qChoices = choicesByQuestion.get(a.question_id) ?? [];
+    return {
+      id: a.question_id,
+      prompt: q?.prompt ?? "(question removed)",
+      choices: qChoices.map((c) => ({
+        id: c.id,
+        text: c.text,
+        isCorrect: c.isCorrect,
+      })),
+      pickedChoiceId: a.choice_id,
+      isCorrect: a.is_correct,
+    };
+  });
+
+  // The quiz row may be null for very old standalone-quiz attempts predating
+  // the refactor; fall back to a stub so the page still renders.
+  const quizMeta = attemptRow.quiz;
+
+  return {
+    student: {
+      id: studentRow.id,
+      name: studentRow.name,
+      email: studentRow.email,
+    },
+    classroom: {
+      id: studentRow.classroomId,
+      name: studentRow.classroomName ?? "",
+    },
+    quiz: {
+      id: quizMeta?.id ?? "",
+      title: quizMeta?.title ?? attemptRow.caseTitle ?? "Quiz",
+      scope: attemptRow.attempt.scope,
+      caseTitle: attemptRow.caseTitle,
+    },
+    attempt: {
+      id: attemptRow.attempt.id,
+      score: attemptRow.attempt.score,
+      questionCount: attemptRow.attempt.questionCount,
+      completedAt: attemptRow.attempt.completedAt,
+    },
+    questions,
+  };
+}
