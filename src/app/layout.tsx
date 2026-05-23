@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Geist, Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { currentUser } from "@/lib/auth/current-user";
 import "./globals.css";
@@ -15,6 +15,15 @@ const geist = Geist({
   variable: "--font-geist",
   subsets: ["latin"],
   weight: ["300", "400", "500"],
+  display: "swap",
+});
+
+// Clinical palette uses Inter — applied via the `clinical` class on the
+// student + teacher (authed) layouts. Admin pages keep Geist.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -94,7 +103,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${geist.variable} ${jetbrainsMono.variable}`}
+      className={`${fraunces.variable} ${geist.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <AuthProvider initialUser={initialUser}>{children}</AuthProvider>

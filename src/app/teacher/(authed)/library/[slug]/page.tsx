@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getLibraryPageForTeacher } from "@/lib/queries/library";
 import { ArticleBody } from "@/components/markdown/article";
+import { LibraryCards } from "@/components/library/library-cards";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -11,8 +12,9 @@ export default async function TeacherArticlePage({ params }: PageProps) {
   const { slug } = await params;
   await requireRole("teacher");
 
-  const page = await getLibraryPageForTeacher(slug);
-  if (!page) notFound();
+  const result = await getLibraryPageForTeacher(slug);
+  if (!result) notFound();
+  const { page, sections } = result;
 
   return (
     <article className="max-w-read">
@@ -37,11 +39,15 @@ export default async function TeacherArticlePage({ params }: PageProps) {
         <img
           src={page.coverImageUrl}
           alt=""
-          className="w-full mb-12 rounded-[2px] border border-rule"
+          className="w-full mb-12 rounded-clinical border border-clinical-border"
         />
       )}
 
-      <ArticleBody markdown={page.bodyMarkdown} />
+      {sections.length > 0 ? (
+        <LibraryCards sections={sections} />
+      ) : (
+        page.bodyMarkdown && <ArticleBody markdown={page.bodyMarkdown} />
+      )}
     </article>
   );
 }

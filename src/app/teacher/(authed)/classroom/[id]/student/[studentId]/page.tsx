@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StageLabel } from "@/components/ui";
+import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
+import { CEyebrow } from "@/components/clinical/primitives";
 import { requireRole } from "@/lib/auth/current-user";
 import {
   getStudentDetailForTeacher,
@@ -151,26 +152,29 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
   const attempts = allAttempts.filter((a) => a.completedAt !== null);
 
   return (
-    <main className="max-w-[900px] mx-auto px-6 md:px-12 py-10 md:py-14">
-      <div className="flex items-baseline justify-between mb-3">
-        <StageLabel>{classroom.name}</StageLabel>
+    <main className="max-w-5xl mx-auto px-5 md:px-8 py-10 md:py-14">
+      <div className="flex items-start justify-between gap-4 mb-10">
+        <div>
+          <CEyebrow className="mb-3">{classroom.name}</CEyebrow>
+          <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-1">
+            {student.name}
+          </h1>
+          <p className="text-[13px] font-mono text-clinical-muted-fg">
+            {student.email}
+          </p>
+        </div>
         <Link
           href={`/teacher/classroom/${classroomId}`}
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
         >
-          ← Back to classroom
+          <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+          Back to classroom
         </Link>
       </div>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-1">
-        {student.name}
-      </h1>
-      <p className="font-mono text-[12px] text-ink-mute mb-12">
-        {student.email}
-      </p>
 
-      <StageLabel className="mb-5">Completed cases</StageLabel>
+      <CEyebrow className="mb-3 mt-10">Completed cases</CEyebrow>
       {attempts.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
+        <p className="text-[15px] text-clinical-muted-fg mb-14">
           No completed cases yet.
         </p>
       ) : (
@@ -178,13 +182,13 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
           {attempts.map((a) => (
             <li
               key={a.id}
-              className="border border-rule-strong rounded-[2px] p-5 mb-3 bg-surface"
+              className="border border-clinical-border rounded-clinical p-5 mb-3 bg-clinical-card"
             >
               <div className="flex items-baseline justify-between mb-3">
-                <h2 className="font-serif text-[18px] text-ink">
+                <h2 className="font-serif text-[18px] text-clinical-fg">
                   {a.caseTitle}
                 </h2>
-                <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+                <span className="text-[11px] font-mono text-clinical-muted-fg">
                   {new Intl.DateTimeFormat("en-US", {
                     month: "short",
                     day: "numeric",
@@ -193,12 +197,12 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   }).format(new Date(a.startedAt))}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-ink-mute mb-3">
+              <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-clinical-muted-fg mb-3">
                 <div className="flex items-center gap-6">
                   {a.totalScore !== null && (
                     <span>
                       Score{" "}
-                      <strong className="text-accent text-[13px]">
+                      <strong className="text-clinical-primary text-[13px]">
                         {a.totalScore}
                       </strong>
                     </span>
@@ -206,25 +210,25 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                 </div>
                 <Link
                   href={`/teacher/classroom/${classroomId}/student/${studentId}/attempt/${a.id}`}
-                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg hover:text-clinical-primary"
                 >
                   View picks →
                 </Link>
               </div>
               {a.stages.length > 0 && (
-                <ul className="border-t border-rule pt-3">
+                <ul className="border-t border-clinical-border/60 pt-3">
                   {a.stages.map((s) => (
                     <li
                       key={s.stageId}
                       className="grid grid-cols-[1fr_60px] items-baseline gap-4 py-2 text-[14px]"
                     >
-                      <span className="font-serif text-ink truncate">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade mr-2">
+                      <span className="font-serif text-clinical-fg truncate">
+                        <span className="text-[11px] font-mono text-clinical-muted-fg mr-2">
                           {TYPE_LABEL[s.type] ?? s.type}
                         </span>
                         {s.prompt}
                       </span>
-                      <span className="font-mono text-[12px] text-ink-mute justify-self-end">
+                      <span className="font-mono text-[12px] text-clinical-muted-fg justify-self-end">
                         +{s.earnedScore}
                       </span>
                     </li>
@@ -236,30 +240,30 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </ul>
       )}
 
-      <StageLabel className="mb-5">Case analytics</StageLabel>
+      <CEyebrow className="mb-3 mt-10">Case analytics</CEyebrow>
       {attempts.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
+        <p className="text-[15px] text-clinical-muted-fg mb-14">
           No completed cases to summarize.
         </p>
       ) : (
         <div className="mb-14">
-          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Case
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Attempts
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Best
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Avg
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Latest
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Last taken
             </span>
           </div>
@@ -267,9 +271,9 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             {aggregateCaseAttempts(attempts).map((g) => (
               <li
                 key={g.caseId}
-                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-rule"
+                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
               >
-                <span className="font-serif text-[16px] text-ink truncate">
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
                   {g.caseTitle}
                 </span>
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
@@ -278,13 +282,13 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                   {g.bestPct}%
                 </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
                   {g.avgPct}%
                 </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
                   {g.latestPct}%
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
                   {new Intl.DateTimeFormat("en-US", {
                     month: "short",
                     day: "numeric",
@@ -296,27 +300,27 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </div>
       )}
 
-      <StageLabel className="mb-5">Quiz attempts</StageLabel>
+      <CEyebrow className="mb-3 mt-10">Quiz attempts</CEyebrow>
       {quizAttempts.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
+        <p className="text-[15px] text-clinical-muted-fg mb-14">
           No quizzes taken yet.
         </p>
       ) : (
         <div className="mb-14">
-          <div className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 pb-3 border-b border-rule-strong">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+          <div className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Quiz
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Scope
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Score
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               %
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Taken
             </span>
             <span />
@@ -330,12 +334,12 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
               return (
                 <li
                   key={q.id}
-                  className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 py-3 border-b border-rule"
+                  className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
                 >
-                  <span className="font-serif text-[16px] text-ink truncate">
+                  <span className="font-serif text-[16px] text-clinical-fg truncate">
                     {q.caseTitle ?? "Quiz"}
                   </span>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-clinical-muted-fg">
                     {q.scope}-test
                   </span>
                   <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
@@ -344,7 +348,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                     {pct}%
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                  <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
                     {new Intl.DateTimeFormat("en-US", {
                       month: "short",
                       day: "numeric",
@@ -354,7 +358,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   </span>
                   <Link
                     href={`/teacher/classroom/${classroomId}/student/${studentId}/quiz/${q.id}`}
-                    className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+                    className="justify-self-end text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg hover:text-clinical-primary"
                   >
                     View →
                   </Link>
@@ -365,33 +369,33 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </div>
       )}
 
-      <StageLabel className="mb-5">Quiz analytics</StageLabel>
+      <CEyebrow className="mb-3 mt-10">Quiz analytics</CEyebrow>
       {quizAttempts.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute">
+        <p className="text-[15px] text-clinical-muted-fg">
           No quizzes taken yet.
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-rule-strong">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+          <div className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Quiz
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Scope
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Attempts
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Best
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Avg
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Latest
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute justify-self-end">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Last taken
             </span>
           </div>
@@ -399,12 +403,12 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             {aggregateQuizAttempts(quizAttempts).map((g) => (
               <li
                 key={g.key}
-                className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-rule"
+                className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
               >
-                <span className="font-serif text-[16px] text-ink truncate">
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
                   {g.caseTitle}
                 </span>
-                <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
+                <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-clinical-muted-fg">
                   {g.scope}-test
                 </span>
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
@@ -413,13 +417,13 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                   {g.bestPct}%
                 </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
                   {g.avgPct}%
                 </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-ink-mute">
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
                   {g.latestPct}%
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+                <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
                   {new Intl.DateTimeFormat("en-US", {
                     month: "short",
                     day: "numeric",

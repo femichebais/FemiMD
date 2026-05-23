@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StageLabel } from "@/components/ui";
+import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { ArticleBody } from "@/components/markdown/article";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCaseAttemptForTeacher } from "@/lib/queries/teacher";
 import { StageBreakdownItem } from "@/app/student/(authed)/case/[id]/feedback/_components/stage-breakdown";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
 import type { Stage } from "@/db/schema";
 
 interface PageProps {
@@ -34,6 +35,16 @@ export default async function TeacherCaseAttemptPage({ params }: PageProps) {
       .slice(0, b.stage.maxPicks);
     return sum + topN.reduce((s, c) => s + c.score, 0);
   }, 0);
+  const scorePct =
+    maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100);
+  const completedAt = attempt.completedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(attempt.completedAt)
+    : "in progress";
 
   const typeCounts = new Map<Stage["type"], number>();
   breakdown.forEach((b) =>
@@ -42,59 +53,59 @@ export default async function TeacherCaseAttemptPage({ params }: PageProps) {
   const typeIndexer = new Map<Stage["type"], number>();
 
   return (
-    <main className="max-w-case mx-auto px-6 md:px-12 py-10 md:py-14 pb-24">
-      <div className="flex items-baseline justify-between mb-3">
-        <StageLabel>{classroom.name}</StageLabel>
+    <main className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14 pb-24">
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <CEyebrow className="mb-3">{classroom.name}</CEyebrow>
+          <h1 className="font-serif text-[34px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-1">
+            {student.name}&rsquo;s attempt
+          </h1>
+          <p className="text-[16px] text-clinical-muted-fg">
+            {caseData.title}
+          </p>
+        </div>
         <Link
           href={`/teacher/classroom/${classroomId}/student/${studentId}`}
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
         >
-          ← Back to {student.name}
+          <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+          Back to {student.name}
         </Link>
       </div>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-1">
-        {student.name}&apos;s attempt
-      </h1>
-      <p className="font-serif italic text-[18px] text-ink-mute mb-12">
-        {caseData.title}
-      </p>
 
-      <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+      <CCard className="bg-clinical-hero px-6 md:px-8 py-7 mb-12 flex items-baseline justify-between gap-6 flex-wrap">
         <div>
-          <div className="label-mono mb-2">Total score</div>
-          <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-            {maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100)}
-            <span className="text-ink-mute text-[28px] ml-1">%</span>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+            Total score
+          </p>
+          <div className="font-serif text-[44px] leading-none tabular-nums text-clinical-fg font-medium">
+            {scorePct}
+            <span className="text-clinical-muted-fg text-[26px] ml-1">%</span>
           </div>
-          <div className="mt-2 font-mono text-[12px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+          <p className="mt-2 text-[12.5px] text-clinical-muted-fg tabular-nums">
             {earned} of {maxPossible} points
-          </div>
+          </p>
         </div>
         <div className="text-right">
-          <div className="label-mono mb-2">Completed</div>
-          <div className="font-mono text-[12px] text-ink tracking-[0.02em]">
-            {attempt.completedAt
-              ? new Intl.DateTimeFormat("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                }).format(attempt.completedAt)
-              : "in progress"}
-          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+            Completed
+          </p>
+          <p className="text-[13px] font-mono text-clinical-fg">{completedAt}</p>
         </div>
-      </section>
+      </CCard>
 
       {caseData.clinicalTakeaway && (
         <section className="mb-14">
-          <StageLabel className="mb-5">Clinical takeaway</StageLabel>
-          <div className="border-l-2 border-accent pl-6 max-w-read">
-            <ArticleBody markdown={caseData.clinicalTakeaway} />
-          </div>
+          <CEyebrow className="mb-3">Clinical takeaway</CEyebrow>
+          <CCard className="px-6 py-5">
+            <div className="border-l-2 border-clinical-primary pl-5">
+              <ArticleBody markdown={caseData.clinicalTakeaway} />
+            </div>
+          </CCard>
         </section>
       )}
 
-      <StageLabel className="mb-7">Picks per stage</StageLabel>
+      <CEyebrow className="mb-5">Picks per stage</CEyebrow>
 
       {breakdown.map((item, i) => {
         const idx = (typeIndexer.get(item.stage.type) ?? 0) + 1;

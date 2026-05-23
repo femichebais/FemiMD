@@ -40,9 +40,25 @@ export default async function EditLibraryPage({ params }: PageProps) {
           eyebrow: data.page.eyebrow ?? "",
           dek: data.page.dek ?? "",
           slug: data.page.diagnosisSlug,
-          bodyMarkdown: data.page.bodyMarkdown,
           coverImageUrl: data.page.coverImageUrl ?? "",
           levels: data.levels as Level[],
+          // Migrate legacy body content (pre-card refactor) into a single
+          // description card on first edit — pre-populated, admin can keep
+          // it or split it into more cards before saving.
+          sections:
+            data.sections.length > 0
+              ? data.sections.map((s) => ({
+                  type: s.type,
+                  bodyMarkdown: s.bodyMarkdown,
+                }))
+              : data.page.bodyMarkdown
+                ? [
+                    {
+                      type: "description" as const,
+                      bodyMarkdown: data.page.bodyMarkdown,
+                    },
+                  ]
+                : [],
         }}
         submitLabel="Save changes"
       />

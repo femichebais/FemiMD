@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LibraryTocEntry } from "@/lib/queries/library";
+import { cn } from "@/lib/utils";
 
 export interface LibraryTocProps {
   entries: LibraryTocEntry[];
@@ -12,8 +13,6 @@ export interface LibraryTocProps {
   emptyMessage?: string;
 }
 
-// Editorial sidebar — same pattern as the mockup's "Diagnoses" TOC.
-// Current item gets the thin accent left-border + ink color.
 export function LibraryToc({
   entries,
   basePath = "/student/library",
@@ -23,15 +22,13 @@ export function LibraryToc({
 
   return (
     <nav>
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-fade mb-[18px]">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-3">
         Diagnoses
       </div>
       {entries.length === 0 ? (
-        <p className="font-serif italic text-[14px] text-ink-mute">
-          {emptyMessage}
-        </p>
+        <p className="text-[13.5px] text-clinical-muted-fg">{emptyMessage}</p>
       ) : (
-        <ul className="flex flex-col gap-[2px]">
+        <ul className="flex flex-col gap-0.5">
           {entries.map((entry) => {
             const href = `${basePath}/${entry.slug}`;
             const active = pathname === href;
@@ -39,12 +36,12 @@ export function LibraryToc({
               <li key={entry.id}>
                 <Link
                   href={href}
-                  className={
-                    "block py-[6px] pl-[14px] border-l text-[13px] transition-colors " +
-                    (active
-                      ? "border-accent text-ink font-medium"
-                      : "border-transparent text-ink-mute hover:text-ink")
-                  }
+                  className={cn(
+                    "block px-3 py-1.5 rounded-clinical text-[13.5px] transition-colors",
+                    active
+                      ? "bg-clinical-primary-soft text-clinical-primary font-medium"
+                      : "text-clinical-muted-fg hover:text-clinical-fg hover:bg-clinical-muted"
+                  )}
                 >
                   {entry.title}
                 </Link>

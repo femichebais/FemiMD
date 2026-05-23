@@ -1,20 +1,83 @@
-import { StageLabel } from "@/components/ui";
+import Link from "next/link";
+import { ArrowRight, BookOpen } from "@phosphor-icons/react/dist/ssr";
+import { requireRole } from "@/lib/auth/current-user";
+import { listLibraryForStudent } from "@/lib/queries/library";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
 
-export default function LibraryIndexPage() {
+export default async function LibraryIndexPage() {
+  const { user } = await requireRole("student");
+  let entries: Awaited<ReturnType<typeof listLibraryForStudent>> = [];
+  try {
+    entries = await listLibraryForStudent(user.id);
+  } catch (err) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[student/library/index]", err);
+    }
+  }
+
   return (
-    <article className="max-w-read">
-      <StageLabel className="mb-5">Library</StageLabel>
-      <h1 className="font-serif text-[44px] leading-[1.05] tracking-[-0.025em] font-normal mb-7">
-        Clinical reference.
+    <article>
+      <CEyebrow className="mb-3">Clinical library</CEyebrow>
+      <h1 className="font-serif text-[40px] md:text-[48px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-4">
+        Reference, on hand.
       </h1>
-      <p className="font-serif italic text-[19px] leading-[1.5] text-ink-mute mb-9 font-light">
-        Articles you can read alongside the cases. Pick a diagnosis from the
-        list to read more.
+      <p className="text-[17px] leading-[1.55] text-clinical-muted-fg max-w-prose mb-10">
+        Short articles you can read alongside the cases. Every case you
+        complete links here. Pick a diagnosis below or use the sidebar.
       </p>
-      <p className="text-[16px] leading-[1.75] text-ink-mute">
-        Every case you complete links here. The articles are written for your
-        level — anything outside it won&apos;t appear in your list.
-      </p>
+
+      {entries.length === 0 ? (
+        <CCard className="px-6 py-10 text-center">
+          <BookOpen
+            weight="duotone"
+            className="h-9 w-9 text-clinical-muted-fg mx-auto mb-3"
+          />
+          <p className="text-clinical-fg font-medium mb-1">
+            No articles for your level yet.
+          </p>
+          <p className="text-[14px] text-clinical-muted-fg">
+            Your teacher hasn&apos;t published anything tagged to your
+            classroom.
+          </p>
+        </CCard>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {entries.map((e) => (
+            <li key={e.id}>
+              <Link
+                href={`/student/library/${e.slug}`}
+                className="block group"
+              >
+                <CCard
+                  hoverable
+                  className="p-4 sm:p-5 h-full flex items-center gap-4"
+                >
+                  <span
+                    className="grid place-items-center h-10 w-10 rounded-clinical bg-clinical-primary-soft text-clinical-primary flex-shrink-0"
+                    aria-hidden
+                  >
+                    <BookOpen weight="duotone" className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {e.eyebrow && (
+                      <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-clinical-muted-fg mb-0.5">
+                        {e.eyebrow}
+                      </p>
+                    )}
+                    <p className="font-serif text-[17px] text-clinical-fg leading-tight group-hover:text-clinical-primary transition-colors truncate">
+                      {e.title}
+                    </p>
+                  </div>
+                  <ArrowRight
+                    weight="bold"
+                    className="h-4 w-4 text-clinical-muted-fg group-hover:text-clinical-primary transition-colors flex-shrink-0"
+                  />
+                </CCard>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </article>
   );
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getLibraryPageForStudent } from "@/lib/queries/library";
 import { ArticleBody } from "@/components/markdown/article";
+import { LibraryCards } from "@/components/library/library-cards";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -11,8 +12,9 @@ export default async function StudentArticlePage({ params }: PageProps) {
   const { slug } = await params;
   const { user } = await requireRole("student");
 
-  const page = await getLibraryPageForStudent(user.id, slug);
-  if (!page) notFound();
+  const result = await getLibraryPageForStudent(user.id, slug);
+  if (!result) notFound();
+  const { page, sections } = result;
 
   return (
     <article className="max-w-read">
@@ -37,11 +39,16 @@ export default async function StudentArticlePage({ params }: PageProps) {
         <img
           src={page.coverImageUrl}
           alt=""
-          className="w-full mb-12 rounded-[2px] border border-rule"
+          className="w-full mb-12 rounded-clinical border border-clinical-border"
         />
       )}
 
-      <ArticleBody markdown={page.bodyMarkdown} />
+      {sections.length > 0 ? (
+        <LibraryCards sections={sections} />
+      ) : (
+        // Legacy fallback for any page that hasn't been migrated yet.
+        page.bodyMarkdown && <ArticleBody markdown={page.bodyMarkdown} />
+      )}
     </article>
   );
 }

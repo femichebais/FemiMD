@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { StageLabel } from "@/components/ui";
+import { ArrowLeft, Eye } from "@phosphor-icons/react/dist/ssr";
 import { requireRole } from "@/lib/auth/current-user";
 import { getClassroomDetail } from "@/lib/queries/teacher";
 import { ReleaseToggle } from "./_components/release-toggle";
 import { QuizReleaseToggle } from "./_components/quiz-release-toggle";
 import { DeleteClassroomButton } from "./_components/delete-classroom-button";
+import {
+  CCard,
+  CBadge,
+  CEyebrow,
+} from "@/components/clinical/primitives";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
@@ -35,202 +40,206 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
     detail;
 
   return (
-    <main className="max-w-[1100px] mx-auto px-6 md:px-12 py-10 md:py-14">
-      <div className="flex items-baseline justify-between mb-3">
+    <main className="max-w-6xl mx-auto px-5 md:px-8 py-10 md:py-14">
+      <div className="flex items-start justify-between gap-4 mb-3">
         <div>
-          <StageLabel className="mb-3">
-            Classroom · {LEVEL_LABEL[classroom.level] ?? classroom.level}
-          </StageLabel>
-          <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
+          <CEyebrow className="mb-3">Classroom</CEyebrow>
+          <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
             {classroom.name}
           </h1>
+          <CBadge tone="neutral">
+            {LEVEL_LABEL[classroom.level] ?? classroom.level}
+          </CBadge>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           <DeleteClassroomButton
             classroomId={classroom.id}
             classroomName={classroom.name}
           />
-          <span aria-hidden className="h-5 w-px bg-rule" />
           <Link
             href="/teacher"
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
           >
-            ← All classrooms
+            <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+            All classrooms
           </Link>
         </div>
       </div>
 
       {/* Invite link */}
-      <section className="bg-paper-2 border border-rule-strong rounded-[2px] p-6 mb-12">
-        <div className="label-mono mb-3">Invite link</div>
+      <CCard className="bg-clinical-hero p-6 mb-12 mt-8">
+        <CEyebrow className="mb-3">Invite link</CEyebrow>
         <div className="flex items-center gap-3">
-          <code className="flex-1 font-mono text-[13px] bg-surface px-3 py-2 border border-rule rounded-[2px] truncate">
+          <code className="flex-1 text-[13px] bg-clinical-card border border-clinical-border rounded-clinical px-3 py-2 truncate font-mono">
             {inviteUrl}
           </code>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade">
-            code {classroom.inviteCode}
+          <span className="text-[11px] font-mono text-clinical-muted-fg">
+            code · {classroom.inviteCode}
           </span>
         </div>
-        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
-          Share this with your students — they&apos;ll sign up and land in
-          this classroom automatically.
+        <p className="mt-3 text-[12.5px] text-clinical-muted-fg">
+          Share this with your students — they&rsquo;ll sign up and land here
+          automatically.
         </p>
-      </section>
+      </CCard>
 
       {/* Top-line stats */}
-      <section className="border-y border-rule py-6 mb-14">
-        <dl className="flex flex-wrap gap-x-10 gap-y-4">
-          <Stat label="Students" value={topline.studentCount} />
-          <Stat label="Cases released" value={topline.releasedCaseCount} />
-          <Stat label="Case attempts" value={topline.totalAttempts} />
-          <Stat
-            label="Case completion"
-            value={`${Math.round(topline.avgCompletion * 100)}%`}
-          />
-          <Stat label="Quizzes released" value={topline.releasedQuizCount} />
-          <Stat label="Quiz attempts" value={topline.totalQuizAttempts} />
-          <Stat
-            label="Quiz completion"
-            value={`${Math.round(topline.quizCompletion * 100)}%`}
-          />
-        </dl>
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-14">
+        <Stat label="Students" value={topline.studentCount} />
+        <Stat label="Cases released" value={topline.releasedCaseCount} />
+        <Stat label="Case attempts" value={topline.totalAttempts} />
+        <Stat
+          label="Case completion"
+          value={`${Math.round(topline.avgCompletion * 100)}%`}
+        />
+        <Stat label="Quizzes released" value={topline.releasedQuizCount} />
+        <Stat label="Quiz attempts" value={topline.totalQuizAttempts} />
+        <Stat
+          label="Quiz completion"
+          value={`${Math.round(topline.quizCompletion * 100)}%`}
+        />
       </section>
 
       {/* Roster */}
-      <StageLabel className="mb-5">Roster</StageLabel>
+      <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
+        Roster
+      </h2>
       {roster.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute mb-14">
-          No students yet. Share the invite link.
-        </p>
+        <CCard className="px-6 py-8 text-center mb-14">
+          <p className="text-clinical-muted-fg">
+            No students yet. Share the invite link.
+          </p>
+        </CCard>
       ) : (
-        <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0 mb-14">
-        <table className="w-full min-w-[640px]">
-          <thead>
-            <tr className="border-b border-rule-strong">
-              <th className="text-left py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                Name
-              </th>
-              <th className="text-left py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                Email
-              </th>
-              <th className="text-right py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                Attempts
-              </th>
-              <th className="text-right py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                Completed
-              </th>
-              <th className="text-right py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                Avg score
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {roster.map((s) => (
-              <tr
-                key={s.id}
-                className="border-b border-rule hover:bg-paper-2 transition-colors"
-              >
-                <td className="py-4">
-                  <Link
-                    href={`/teacher/classroom/${id}/student/${s.id}`}
-                    className="font-serif text-[16px] text-ink hover:text-accent"
+        <CCard className="overflow-hidden mb-14">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px]">
+              <thead>
+                <tr className="border-b border-clinical-border bg-clinical-muted/50">
+                  <Th>Name</Th>
+                  <Th>Email</Th>
+                  <Th align="right">Attempts</Th>
+                  <Th align="right">Completed</Th>
+                  <Th align="right">Avg score</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {roster.map((s) => (
+                  <tr
+                    key={s.id}
+                    className="border-b border-clinical-border last:border-b-0 hover:bg-clinical-muted/40 transition-colors"
                   >
-                    {/* Path uses [id]/student/[studentId] — both ids match. */}
-                    {s.name}
-                  </Link>
-                </td>
-                <td className="py-4 font-mono text-[12px] text-ink-mute">
-                  {s.email}
-                </td>
-                <td className="py-4 text-right font-mono text-[13px] tabular-nums">
-                  {s.attemptCount}
-                </td>
-                <td className="py-4 text-right font-mono text-[13px] tabular-nums">
-                  {s.completedCount} / {topline.releasedCaseCount}
-                </td>
-                <td className="py-4 text-right font-mono text-[13px] tabular-nums">
-                  {s.avgScore === null ? "—" : s.avgScore.toFixed(1)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+                    <td className="py-3 px-4">
+                      <Link
+                        href={`/teacher/classroom/${id}/student/${s.id}`}
+                        className="font-serif text-[15px] text-clinical-fg hover:text-clinical-primary"
+                      >
+                        {s.name}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-4 text-[12.5px] font-mono text-clinical-muted-fg">
+                      {s.email}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.attemptCount}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.completedCount} / {topline.releasedCaseCount}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.avgScore === null ? "—" : s.avgScore.toFixed(1)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CCard>
       )}
 
       {/* Cases at this level */}
-      <StageLabel className="mb-5">Cases at this level</StageLabel>
+      <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
+        Cases at this level
+      </h2>
       {availableCases.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute">
-          No cases have been authored for {LEVEL_LABEL[classroom.level]} yet.
-        </p>
+        <CCard className="px-6 py-8 text-center mb-14">
+          <p className="text-clinical-muted-fg">
+            No cases have been authored for{" "}
+            {LEVEL_LABEL[classroom.level]} yet.
+          </p>
+        </CCard>
       ) : (
-        <ul>
-          {availableCases.map((c) => (
-            <li
-              key={c.id}
-              className="grid grid-cols-[1fr_140px_80px_140px] items-center gap-6 py-4 border-b border-rule"
-            >
-              <span className="font-serif text-[17px] text-ink">{c.title}</span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
-                {c.isReleased && c.releasedAt
-                  ? `since ${new Intl.DateTimeFormat("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    }).format(new Date(c.releasedAt))}`
-                  : ""}
-              </span>
-              <Link
-                href={`/teacher/case/${c.id}/preview?back=/teacher/classroom/${id}`}
-                className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border border-rule-strong px-3 py-2 rounded-[2px] transition-colors whitespace-nowrap"
+        <CCard className="overflow-hidden mb-14">
+          <ul className="divide-y divide-clinical-border">
+            {availableCases.map((c) => (
+              <li
+                key={c.id}
+                className="px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-4"
               >
-                Preview
-              </Link>
-              <span className="justify-self-end">
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
+                  {c.title}
+                </span>
+                <span className="text-[11.5px] font-mono text-clinical-muted-fg tabular-nums whitespace-nowrap">
+                  {c.isReleased && c.releasedAt
+                    ? `since ${new Intl.DateTimeFormat("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      }).format(new Date(c.releasedAt))}`
+                    : ""}
+                </span>
+                <Link
+                  href={`/teacher/case/${c.id}/preview?back=/teacher/classroom/${id}`}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-clinical-muted-fg hover:text-clinical-primary px-2.5 py-1 rounded-clinical hover:bg-clinical-muted transition-colors"
+                >
+                  <Eye weight="bold" className="h-3.5 w-3.5" />
+                  Preview
+                </Link>
                 <ReleaseToggle
                   classroomId={id}
                   caseId={c.id}
                   initialReleased={c.isReleased}
                 />
-              </span>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </CCard>
       )}
 
-      {/* Quizzes — releasable independently of cases. Includes case-attached
-          pre/post tests + standalone quizzes admin authored. */}
-      <StageLabel className="mb-5 mt-14">Quizzes</StageLabel>
+      <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
+        Quizzes
+      </h2>
       {availableQuizzes.length === 0 ? (
-        <p className="font-serif italic text-[16px] text-ink-mute">
-          No quizzes available yet. Admin can author them from{" "}
-          <code className="font-mono text-[12px]">/admin/quizzes</code>.
-        </p>
+        <CCard className="px-6 py-8 text-center">
+          <p className="text-clinical-muted-fg">
+            No quizzes available yet. Admin can author them from{" "}
+            <code className="text-[12.5px] font-mono">/admin/quizzes</code>.
+          </p>
+        </CCard>
       ) : (
-        <ul>
-          {availableQuizzes.map((q) => (
-            <li
-              key={q.id}
-              className="grid grid-cols-[1fr_140px_140px] items-center gap-6 py-4 border-b border-rule"
-            >
-              <span className="font-serif text-[17px] text-ink">
-                {q.title}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
-                {q.caseTitle
-                  ? `${q.scope === "pre" ? "Pre" : q.scope === "post" ? "Post" : ""} · ${q.caseTitle}`
-                  : (q.topic ?? "standalone")}
-              </span>
-              <span className="justify-self-end">
+        <CCard className="overflow-hidden">
+          <ul className="divide-y divide-clinical-border">
+            {availableQuizzes.map((q) => (
+              <li
+                key={q.id}
+                className="px-5 py-4 grid grid-cols-[1fr_auto_auto] items-center gap-4"
+              >
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
+                  {q.title}
+                </span>
+                <span className="text-[11.5px] font-mono text-clinical-muted-fg whitespace-nowrap">
+                  {q.caseTitle
+                    ? `${q.scope === "pre" ? "Pre" : q.scope === "post" ? "Post" : ""} · ${q.caseTitle}`
+                    : (q.topic ?? "standalone")}
+                </span>
                 <QuizReleaseToggle
                   classroomId={id}
                   quizId={q.id}
                   initialReleased={q.isReleased}
                 />
-              </span>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </CCard>
       )}
     </main>
   );
@@ -244,13 +253,29 @@ function Stat({
   value: string | number;
 }) {
   return (
-    <div className="flex items-baseline gap-3">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-mute">
+    <CCard className="p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-muted-fg mb-1.5">
         {label}
-      </dt>
-      <dd className="font-serif text-[26px] font-medium tabular-nums">
+      </p>
+      <p className="font-serif text-[26px] leading-none font-medium tabular-nums text-clinical-fg">
         {value}
-      </dd>
-    </div>
+      </p>
+    </CCard>
+  );
+}
+
+function Th({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      className={`px-4 py-2.5 text-${align} text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg`}
+    >
+      {children}
+    </th>
   );
 }

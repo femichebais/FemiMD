@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, and, eq, isNotNull } from "drizzle-orm";
-import { StageLabel } from "@/components/ui";
+import {
+  ArrowRight,
+  BookOpen,
+  ClipboardText,
+} from "@phosphor-icons/react/dist/ssr";
 import { db } from "@/db/client";
 import { caseAttempts } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getAttemptFeedback } from "@/lib/queries/feedback";
 import { StageBreakdownItem } from "./_components/stage-breakdown";
 import { ArticleBody } from "@/components/markdown/article";
+import {
+  CCard,
+  CEyebrow,
+  CLinkButton,
+} from "@/components/clinical/primitives";
 import type { Stage } from "@/db/schema";
 
 interface FeedbackPageProps {
@@ -77,59 +86,66 @@ export default async function FeedbackPage({
   );
   const typeIndexer = new Map<Stage["type"], number>();
 
+  const scorePct =
+    maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100);
+  const completedAt = attempt.completedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(attempt.completedAt)
+    : "in progress";
+
   return (
-    <main className="px-6 md:px-12 py-10 md:py-14 pb-24">
-      <div className="max-w-case mx-auto">
-        <StageLabel className="mb-5">Case complete</StageLabel>
-        <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
+    <main className="px-5 md:px-8 py-10 md:py-14 pb-24">
+      <div className="max-w-3xl mx-auto">
+        <CEyebrow className="mb-3">Case complete</CEyebrow>
+        <h1 className="font-serif text-[40px] md:text-[48px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
           Nice work.
         </h1>
-        <p className="font-serif italic text-[18px] text-ink-mute mb-12">
+        <p className="text-[18px] text-clinical-muted-fg mb-10">
           {caseData.title}
         </p>
 
-        {/* Score banner */}
-        <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+        {/* Score banner — clinical card with the gradient hero treatment. */}
+        <CCard className="bg-clinical-hero px-6 md:px-8 py-8 mb-12 flex items-baseline justify-between gap-6 flex-wrap">
           <div>
-            <div className="label-mono mb-2">Total score</div>
-            <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-              {maxPossible === 0
-                ? 0
-                : Math.round((earned / maxPossible) * 100)}
-              <span className="text-ink-mute text-[28px] ml-1">%</span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+              Total score
+            </p>
+            <div className="font-serif text-[48px] leading-none tabular-nums text-clinical-fg font-medium">
+              {scorePct}
+              <span className="text-clinical-muted-fg text-[28px] ml-1">
+                %
+              </span>
             </div>
-            <div className="mt-2 font-mono text-[12px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+            <p className="mt-2 text-[12.5px] text-clinical-muted-fg tabular-nums">
               {earned} of {maxPossible} points
-            </div>
+            </p>
           </div>
           <div className="text-right">
-            <div className="label-mono mb-2">Completed</div>
-            <div className="font-mono text-[12px] text-ink tracking-[0.02em]">
-              {attempt.completedAt
-                ? new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }).format(attempt.completedAt)
-                : "in progress"}
-            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+              Completed
+            </p>
+            <p className="text-[13px] font-mono text-clinical-fg">
+              {completedAt}
+            </p>
           </div>
-        </section>
+        </CCard>
 
-        {/* Clinical takeaway — admin-authored markdown, shown above the
-            stage breakdown. Helps reinforce key concepts before they dive
-            into the picks they made. */}
         {caseData.clinicalTakeaway && (
           <section className="mb-14">
-            <StageLabel className="mb-5">Clinical takeaway</StageLabel>
-            <div className="border-l-2 border-accent pl-6 max-w-read">
-              <ArticleBody markdown={caseData.clinicalTakeaway} />
-            </div>
+            <CEyebrow className="mb-3">Clinical takeaway</CEyebrow>
+            <CCard className="px-6 py-5">
+              <div className="border-l-2 border-clinical-primary pl-5">
+                <ArticleBody markdown={caseData.clinicalTakeaway} />
+              </div>
+            </CCard>
           </section>
         )}
 
-        <StageLabel className="mb-7">Stage breakdown</StageLabel>
+        <CEyebrow className="mb-5">Stage breakdown</CEyebrow>
 
         {breakdown.map((item, i) => {
           const idx = (typeIndexer.get(item.stage.type) ?? 0) + 1;
@@ -145,53 +161,71 @@ export default async function FeedbackPage({
           );
         })}
 
-        {/* Library + post-test CTAs */}
-        <section className="mt-16 pt-10 border-t border-rule grid gap-3 md:grid-cols-2">
+        <section className="mt-16 pt-10 border-t border-clinical-border grid gap-3 md:grid-cols-2">
           {caseData.linkedDiagnosisSlug && (
             <Link
               href={`/student/library/${caseData.linkedDiagnosisSlug}`}
-              className="group block p-6 border border-rule-strong rounded-[2px] hover:border-accent transition-colors"
+              className="block group"
             >
-              <div className="label-mono mb-2 group-hover:text-accent transition-colors">
-                Read more
-              </div>
-              <div className="font-serif text-[20px] text-ink leading-[1.3]">
-                The clinical reference{" "}
-                <span className="text-ink-mute italic">for this case</span>
-              </div>
-              <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade group-hover:text-accent transition-colors">
-                Open library →
-              </span>
+              <CCard hoverable className="p-6 h-full">
+                <BookOpen
+                  weight="duotone"
+                  className="h-7 w-7 text-clinical-primary mb-3"
+                />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+                  Read more
+                </p>
+                <p className="font-serif text-[20px] leading-tight text-clinical-fg font-medium mb-1">
+                  The clinical reference
+                </p>
+                <p className="text-[14px] text-clinical-muted-fg mb-4">
+                  Definitions, symptoms, and management for this case.
+                </p>
+                <span className="inline-flex items-center text-[13px] font-medium text-clinical-primary">
+                  Open library
+                  <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
+                </span>
+              </CCard>
             </Link>
           )}
 
           <Link
             href={`/student/case/${caseId}/quiz/post`}
-            className="group block p-6 border border-rule-strong rounded-[2px] hover:border-accent transition-colors"
+            className="block group"
           >
-            <div className="label-mono mb-2 group-hover:text-accent transition-colors">
-              Post-test
-            </div>
-            <div className="font-serif text-[20px] text-ink leading-[1.3]">
-              Test what stuck.
-            </div>
-            <span className="mt-3 inline-block font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade group-hover:text-accent transition-colors">
-              Take post-test →
-            </span>
+            <CCard hoverable className="p-6 h-full">
+              <ClipboardText
+                weight="duotone"
+                className="h-7 w-7 text-clinical-primary mb-3"
+              />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+                Post-test
+              </p>
+              <p className="font-serif text-[20px] leading-tight text-clinical-fg font-medium mb-1">
+                Test what stuck.
+              </p>
+              <p className="text-[14px] text-clinical-muted-fg mb-4">
+                A short quiz to confirm you&rsquo;ve closed the loop.
+              </p>
+              <span className="inline-flex items-center text-[13px] font-medium text-clinical-primary">
+                Take post-test
+                <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
+              </span>
+            </CCard>
           </Link>
         </section>
 
-        <div className="mt-12 flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-          <Link
+        <div className="mt-10 flex items-center gap-3">
+          <CLinkButton
             href={`/student/case/${caseId}`}
-            className="hover:text-ink transition-colors"
+            variant="outline"
+            size="sm"
           >
             Retry case
-          </Link>
-          <span aria-hidden>·</span>
-          <Link href="/student" className="hover:text-ink transition-colors">
+          </CLinkButton>
+          <CLinkButton href="/student" variant="ghost" size="sm">
             All cases
-          </Link>
+          </CLinkButton>
         </div>
       </div>
     </main>

@@ -39,6 +39,16 @@ export const stageTypeEnum = pgEnum("stage_type", [
 ]);
 export const quizScopeEnum = pgEnum("quiz_scope", ["pre", "post"]);
 export const resourceTypeEnum = pgEnum("resource_type", ["pdf", "link", "slides"]);
+export const librarySectionTypeEnum = pgEnum("library_section_type", [
+  "definition",
+  "description",
+  "what_happens_in_body",
+  "symptoms",
+  "physical_exam",
+  "management",
+  "treatment",
+  "what_to_do",
+]);
 
 // =============================================================================
 // Profiles — bridges auth.users to app-level role/identity
@@ -441,7 +451,9 @@ export const libraryPages = pgTable(
     title: text("title").notNull(),
     eyebrow: text("eyebrow"),
     dek: text("dek"),
-    bodyMarkdown: text("body_markdown").notNull(),
+    // Legacy markdown body (pre-card refactor). New pages use library_page_sections.
+    // Existing rows are auto-migrated into a single "description" section on next save.
+    bodyMarkdown: text("body_markdown"),
     coverImageUrl: text("cover_image_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -463,6 +475,35 @@ export const libraryPageLevels = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.libraryPageId, table.level] }),
+  })
+);
+
+// Card-based article sections. Admin picks which sections appear per page and
+// the order they render in. Each section is its own markdown body.
+export const libraryPageSections = pgTable(
+  "library_page_sections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    libraryPageId: uuid("library_page_id")
+      .notNull()
+      .references(() => libraryPages.id, { onDelete: "cascade" }),
+    type: librarySectionTypeEnum("type").notNull(),
+    bodyMarkdown: text("body_markdown").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pageIdx: index("library_page_sections_page_idx").on(table.libraryPageId),
+    pagePositionUq: uniqueIndex("library_page_sections_page_position_uq").on(
+      table.libraryPageId,
+      table.position
+    ),
+    pageTypeUq: uniqueIndex("library_page_sections_page_type_uq").on(
+      table.libraryPageId,
+      table.type
+    ),
   })
 );
 
@@ -586,6 +627,10 @@ export type QuizAttempt = typeof quizAttempts.$inferSelect;
 export type NewQuizAttempt = typeof quizAttempts.$inferInsert;
 export type LibraryPage = typeof libraryPages.$inferSelect;
 export type NewLibraryPage = typeof libraryPages.$inferInsert;
+export type LibraryPageSection = typeof libraryPageSections.$inferSelect;
+export type NewLibraryPageSection = typeof libraryPageSections.$inferInsert;
+export type LibrarySectionType =
+  (typeof librarySectionTypeEnum.enumValues)[number];
 export type Resource = typeof resources.$inferSelect;
 export type NewResource = typeof resources.$inferInsert;
 export type CaseRelease = typeof caseReleases.$inferSelect;

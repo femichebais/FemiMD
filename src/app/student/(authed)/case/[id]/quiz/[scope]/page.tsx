@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, isNull, and } from "drizzle-orm";
-import { StageLabel } from "@/components/ui";
+import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { db } from "@/db/client";
 import { cases } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCaseForStudent } from "@/lib/queries/student-cases";
 import { pickRandomQuestions, ensureCaseQuiz } from "@/lib/queries/quiz";
 import { QuizPlayer } from "./_components/quiz-player";
+import { CEyebrow } from "@/components/clinical/primitives";
 import type { QuizScope } from "./actions";
 
 interface PageProps {
@@ -47,24 +48,25 @@ export default async function StudentQuizPage({ params }: PageProps) {
 
   if (questions.length === 0) {
     return (
-      <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
-        <div className="max-w-case mx-auto">
-          <StageLabel className="mb-5">
+      <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
+        <div className="max-w-2xl mx-auto">
+          <CEyebrow className="mb-3">
             {scope === "pre" ? "Pre-test" : "Post-test"} · {caseRow.title}
-          </StageLabel>
-          <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
+          </CEyebrow>
+          <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
             Nothing here yet.
           </h1>
-          <p className="font-serif italic text-[16px] text-ink-mute mb-10">
-            Your teacher or platform admin hasn&apos;t added{" "}
+          <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-10">
+            Your teacher or admin hasn&apos;t added{" "}
             {scope === "pre" ? "pre-test" : "post-test"} questions for this
-            case.
+            case yet.
           </p>
           <Link
             href="/student"
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
           >
-            ← All cases
+            <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+            All cases
           </Link>
         </div>
       </main>

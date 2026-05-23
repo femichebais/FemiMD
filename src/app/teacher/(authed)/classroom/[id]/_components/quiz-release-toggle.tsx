@@ -50,19 +50,18 @@ export function QuizReleaseToggle({
         type="button"
         onClick={handleClick}
         disabled={isPending}
+        aria-pressed={released}
         className={
-          "font-mono text-[10px] uppercase tracking-[0.18em] py-2 px-3 rounded-[2px] transition-colors disabled:opacity-50 " +
+          "inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-clinical transition-colors disabled:opacity-50 " +
           (released
-            ? "bg-accent-soft text-accent border border-accent"
-            : "border border-rule-strong text-ink-mute hover:border-accent hover:text-accent")
+            ? "bg-clinical-primary text-clinical-primary-fg shadow-clinical-elegant"
+            : "border border-clinical-border text-clinical-muted-fg hover:bg-clinical-muted hover:text-clinical-fg")
         }
       >
         {released ? "Released" : "Release"}
       </button>
       {error && (
-        <span className="font-mono text-[10px] text-[var(--warning)]">
-          {error}
-        </span>
+        <span className="text-[11px] text-clinical-destructive">{error}</span>
       )}
     </div>
   );

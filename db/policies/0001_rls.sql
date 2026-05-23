@@ -103,13 +103,18 @@ ALTER TABLE public.cases               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.case_level_config   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stages              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.choices             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quizzes             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quiz_questions      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quiz_choices        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quiz_releases       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_quiz_grants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_case_grants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.case_attempts       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stage_attempts      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quiz_attempts       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.library_pages       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.library_page_levels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_pages         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_page_levels   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_page_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.resources           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.resource_levels     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.case_releases       ENABLE ROW LEVEL SECURITY;
@@ -289,8 +294,49 @@ CREATE POLICY "read_choices" ON public.choices
   USING (EXISTS (SELECT 1 FROM public.stages s WHERE s.id = choices.stage_id));
 
 -- ============================================================================
--- quiz_questions / quiz_choices — same pattern as cases/stages
+-- quizzes / quiz_questions / quiz_choices
 -- ============================================================================
+-- Quizzes own questions (migration 0003). Read visibility flows: a row in
+-- public.quizzes is visible to the role iff (a) it's case-attached and the
+-- case is released to the role, OR (b) it's standalone and the role has been
+-- explicitly granted access. Questions + choices inherit from their quiz.
+
+DROP POLICY IF EXISTS "admin_all_quizzes"   ON public.quizzes;
+DROP POLICY IF EXISTS "teacher_read_quizzes" ON public.quizzes;
+DROP POLICY IF EXISTS "student_read_quizzes" ON public.quizzes;
+
+CREATE POLICY "admin_all_quizzes" ON public.quizzes
+  FOR ALL TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- Teachers can see every non-deleted quiz so they can decide what to release.
+CREATE POLICY "teacher_read_quizzes" ON public.quizzes
+  FOR SELECT TO authenticated
+  USING (public.is_teacher() AND deleted_at IS NULL);
+
+-- Students see a quiz if it's been released to their classroom OR
+-- specifically granted to them.
+CREATE POLICY "student_read_quizzes" ON public.quizzes
+  FOR SELECT TO authenticated
+  USING (
+    public.is_student() AND deleted_at IS NULL AND (
+      EXISTS (
+        SELECT 1
+        FROM public.quiz_releases qr
+        JOIN public.students s
+          ON s.classroom_id = qr.classroom_id
+        WHERE qr.quiz_id = quizzes.id
+          AND s.id = auth.uid()
+          AND s.deleted_at IS NULL
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.student_quiz_grants g
+        WHERE g.quiz_id = quizzes.id
+          AND g.student_id = auth.uid()
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "admin_all_quiz_questions" ON public.quiz_questions;
 DROP POLICY IF EXISTS "read_quiz_questions"      ON public.quiz_questions;
@@ -299,11 +345,17 @@ CREATE POLICY "admin_all_quiz_questions" ON public.quiz_questions
   FOR ALL TO authenticated
   USING (public.is_admin()) WITH CHECK (public.is_admin());
 
+-- A question is visible if you can see its quiz (the quizzes policy
+-- above handles all the release/grant logic).
 CREATE POLICY "read_quiz_questions" ON public.quiz_questions
   FOR SELECT TO authenticated
   USING (
     deleted_at IS NULL
-    AND EXISTS (SELECT 1 FROM public.cases c WHERE c.id = quiz_questions.case_id)
+    AND EXISTS (
+      SELECT 1 FROM public.quizzes q
+      WHERE q.id = quiz_questions.quiz_id
+        AND q.deleted_at IS NULL
+    )
   );
 
 DROP POLICY IF EXISTS "admin_all_quiz_choices" ON public.quiz_choices;
@@ -449,6 +501,38 @@ CREATE POLICY "read_lpl" ON public.library_page_levels
     level = public.student_level() OR level = ANY(public.teacher_levels())
   );
 
+-- Sections inherit access from their parent page. Admin can write; teachers
+-- and students get read access whenever they could read the page itself.
+DROP POLICY IF EXISTS "admin_all_lps"    ON public.library_page_sections;
+DROP POLICY IF EXISTS "read_lps"         ON public.library_page_sections;
+
+CREATE POLICY "admin_all_lps" ON public.library_page_sections
+  FOR ALL TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY "read_lps" ON public.library_page_sections
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.library_pages lp
+      WHERE lp.id = library_page_sections.library_page_id
+        AND lp.deleted_at IS NULL
+        AND (
+          public.is_admin()
+          OR (public.is_teacher() AND EXISTS (
+            SELECT 1 FROM public.library_page_levels lpl
+            WHERE lpl.library_page_id = lp.id
+              AND lpl.level = ANY(public.teacher_levels())
+          ))
+          OR (public.is_student() AND EXISTS (
+            SELECT 1 FROM public.library_page_levels lpl
+            WHERE lpl.library_page_id = lp.id
+              AND lpl.level = public.student_level()
+          ))
+        )
+    )
+  );
+
 -- ============================================================================
 -- resources + level join
 -- ============================================================================
@@ -514,6 +598,54 @@ CREATE POLICY "teacher_own_releases" ON public.case_releases
 CREATE POLICY "student_read_releases" ON public.case_releases
   FOR SELECT TO authenticated
   USING (classroom_id = public.student_classroom_id());
+
+-- ============================================================================
+-- quiz_releases — teachers manage own classrooms; students read own classroom
+-- ============================================================================
+
+DROP POLICY IF EXISTS "admin_all_qreleases"     ON public.quiz_releases;
+DROP POLICY IF EXISTS "teacher_own_qreleases"   ON public.quiz_releases;
+DROP POLICY IF EXISTS "student_read_qreleases"  ON public.quiz_releases;
+
+CREATE POLICY "admin_all_qreleases" ON public.quiz_releases
+  FOR ALL TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY "teacher_own_qreleases" ON public.quiz_releases
+  FOR ALL TO authenticated
+  USING (classroom_id = ANY(public.teacher_classroom_ids()))
+  WITH CHECK (classroom_id = ANY(public.teacher_classroom_ids()));
+
+CREATE POLICY "student_read_qreleases" ON public.quiz_releases
+  FOR SELECT TO authenticated
+  USING (classroom_id = public.student_classroom_id());
+
+-- ============================================================================
+-- student_quiz_grants / student_case_grants — admin-only writes; the granted
+-- student can read their own grant row (analytics, UI hints).
+-- ============================================================================
+
+DROP POLICY IF EXISTS "admin_all_sqgrants"   ON public.student_quiz_grants;
+DROP POLICY IF EXISTS "student_read_sqgrant" ON public.student_quiz_grants;
+
+CREATE POLICY "admin_all_sqgrants" ON public.student_quiz_grants
+  FOR ALL TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY "student_read_sqgrant" ON public.student_quiz_grants
+  FOR SELECT TO authenticated
+  USING (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "admin_all_scgrants"   ON public.student_case_grants;
+DROP POLICY IF EXISTS "student_read_scgrant" ON public.student_case_grants;
+
+CREATE POLICY "admin_all_scgrants" ON public.student_case_grants
+  FOR ALL TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+CREATE POLICY "student_read_scgrant" ON public.student_case_grants
+  FOR SELECT TO authenticated
+  USING (student_id = auth.uid());
 
 -- ============================================================================
 -- Function grants — authenticated users must be able to call the helpers.

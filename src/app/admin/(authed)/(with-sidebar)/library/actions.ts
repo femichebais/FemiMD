@@ -4,13 +4,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { libraryPages, libraryPageLevels } from "@/db/schema";
+import {
+  libraryPages,
+  libraryPageLevels,
+  libraryPageSections,
+  type LibrarySectionType,
+} from "@/db/schema";
+import { isSectionType } from "@/lib/library/section-types";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const STORAGE_BUCKET = "femi-media";
 
 export type Level = "middle" | "high" | "undergrad";
+
+export interface SectionInput {
+  type: LibrarySectionType;
+  bodyMarkdown: string;
+}
 
 export interface LibraryFormState {
   error?: string;
@@ -20,23 +31,44 @@ export interface LibraryFormState {
     eyebrow: string;
     dek: string;
     slug: string;
-    bodyMarkdown: string;
     coverImageUrl: string;
     levels: Level[];
+    sections: SectionInput[];
   };
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function parseSections(raw: string): SectionInput[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out: SectionInput[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+    const t = (item as { type?: unknown }).type;
+    const b = (item as { bodyMarkdown?: unknown }).bodyMarkdown;
+    if (typeof t !== "string" || !isSectionType(t)) continue;
+    if (typeof b !== "string") continue;
+    out.push({ type: t, bodyMarkdown: b });
+  }
+  return out;
+}
 
 function readFormValues(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const eyebrow = String(formData.get("eyebrow") ?? "").trim();
   const dek = String(formData.get("dek") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
-  const bodyMarkdown = String(formData.get("body_markdown") ?? "");
   const coverImageUrl = String(formData.get("cover_image_url") ?? "").trim();
   const levels = formData.getAll("levels").map(String) as Level[];
-  return { title, eyebrow, dek, slug, bodyMarkdown, coverImageUrl, levels };
+  const sections = parseSections(String(formData.get("sections") ?? ""));
+  return { title, eyebrow, dek, slug, coverImageUrl, levels, sections };
 }
 
 function validate(values: ReturnType<typeof readFormValues>): string | null {
@@ -44,12 +76,23 @@ function validate(values: ReturnType<typeof readFormValues>): string | null {
   if (!values.slug) return "Slug is required.";
   if (!SLUG_RE.test(values.slug))
     return "Slug must be lowercase kebab-case (e.g. myocardial-infarction).";
-  if (!values.bodyMarkdown.trim()) return "Body content is required.";
   if (values.levels.length === 0) return "Choose at least one level.";
   for (const l of values.levels) {
     if (l !== "middle" && l !== "high" && l !== "undergrad") {
       return `Invalid level: ${l}`;
     }
+  }
+  if (values.sections.length === 0)
+    return "Add at least one section card.";
+  for (const s of values.sections) {
+    if (!s.bodyMarkdown.trim())
+      return `Section "${s.type}" is empty. Add content or remove it.`;
+  }
+  // Duplicate types should be impossible (UI prevents it) but enforce.
+  const seen = new Set<string>();
+  for (const s of values.sections) {
+    if (seen.has(s.type)) return `Duplicate section: ${s.type}.`;
+    seen.add(s.type);
   }
   return null;
 }
@@ -76,7 +119,8 @@ export async function createLibraryPage(
           eyebrow: values.eyebrow || null,
           dek: values.dek || null,
           diagnosisSlug: values.slug,
-          bodyMarkdown: values.bodyMarkdown,
+          // New pages no longer use bodyMarkdown — sections own the content.
+          bodyMarkdown: null,
           coverImageUrl: values.coverImageUrl || null,
         })
         .returning({ id: libraryPages.id });
@@ -87,6 +131,14 @@ export async function createLibraryPage(
           values.levels.map((l) => ({ libraryPageId: pageId, level: l }))
         );
       }
+      await tx.insert(libraryPageSections).values(
+        values.sections.map((s, i) => ({
+          libraryPageId: pageId,
+          type: s.type,
+          bodyMarkdown: s.bodyMarkdown,
+          position: i,
+        }))
+      );
     });
   } catch (err) {
     // Slug collision is the most common cause.
@@ -125,7 +177,8 @@ export async function updateLibraryPage(
           eyebrow: values.eyebrow || null,
           dek: values.dek || null,
           diagnosisSlug: values.slug,
-          bodyMarkdown: values.bodyMarkdown,
+          // Saving via the card editor drops the legacy markdown body.
+          bodyMarkdown: null,
           coverImageUrl: values.coverImageUrl || null,
         })
         .where(
@@ -142,6 +195,20 @@ export async function updateLibraryPage(
           values.levels.map((l) => ({ libraryPageId: pageId, level: l }))
         );
       }
+
+      // Replace sections wholesale. Cheap (<10 rows) and avoids reconciling
+      // position changes incrementally.
+      await tx
+        .delete(libraryPageSections)
+        .where(eq(libraryPageSections.libraryPageId, pageId));
+      await tx.insert(libraryPageSections).values(
+        values.sections.map((s, i) => ({
+          libraryPageId: pageId,
+          type: s.type,
+          bodyMarkdown: s.bodyMarkdown,
+          position: i,
+        }))
+      );
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

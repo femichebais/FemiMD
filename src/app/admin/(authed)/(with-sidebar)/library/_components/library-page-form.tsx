@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import { Button, FieldLabel, Input } from "@/components/ui";
-import { MarkdownEditor } from "./markdown-editor";
 import { CoverImageField } from "./cover-image-field";
+import { SectionsEditor, type SectionInput } from "./sections-editor";
 import type { LibraryFormState, Level } from "../actions";
 
 const LEVELS: Array<{ value: Level; label: string }> = [
@@ -22,9 +22,9 @@ export interface LibraryPageFormProps {
     eyebrow?: string;
     dek?: string;
     slug?: string;
-    bodyMarkdown?: string;
     coverImageUrl?: string;
     levels?: Level[];
+    sections?: SectionInput[];
   };
   submitLabel: string;
 }
@@ -97,10 +97,13 @@ export function LibraryPageForm({
       </div>
 
       <div>
-        <FieldLabel>Body</FieldLabel>
-        <MarkdownEditor
-          name="body_markdown"
-          defaultValue={values.bodyMarkdown ?? ""}
+        <FieldLabel>Sections</FieldLabel>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade mb-3">
+          Add the cards students will see. Each is its own markdown block.
+        </p>
+        <SectionsEditor
+          name="sections"
+          defaultValue={values.sections ?? initial?.sections ?? []}
         />
       </div>
 
