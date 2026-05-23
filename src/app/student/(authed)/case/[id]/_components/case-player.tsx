@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import {
-  ChoiceRow,
-  PatientChart,
-  ResponseQuote,
-  StageLabel,
-  Button,
-} from "@/components/ui";
+  CChoiceRow,
+  CPatientChart,
+  CResponseQuote,
+} from "@/components/clinical/case";
+import { CButton, CCard, CEyebrow } from "@/components/clinical/primitives";
 import { ArticleBody } from "@/components/markdown/article";
 import type { Case, Stage, Choice } from "@/db/schema";
 import {
@@ -114,8 +114,8 @@ export function CasePlayer({
 
   if (stages.length === 0) {
     return (
-      <main className="max-w-case mx-auto px-6 md:px-12 py-10 md:py-14 text-center">
-        <p className="font-serif italic text-[16px] text-ink-mute">
+      <main className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14 text-center">
+        <p className="text-[16px] text-clinical-muted-fg">
           This case has no stages yet.
         </p>
       </main>
@@ -229,22 +229,34 @@ export function CasePlayer({
     );
   }
 
+  const continueLabel = previewMode
+    ? isLast
+      ? "End preview"
+      : "Continue"
+    : isAdvancing
+      ? isLast
+        ? "Finishing…"
+        : "Saving…"
+      : isLast
+        ? "Finish case"
+        : "Continue";
+
   return (
-    <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
-      <div className="max-w-case mx-auto">
+    <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
+      <div className="max-w-3xl mx-auto">
         {previewMode && (
-          <div className="mb-8 -mt-2 flex items-center justify-between gap-4 px-4 py-3 bg-accent-soft border-l-2 border-accent rounded-[2px]">
+          <div className="mb-8 flex items-center justify-between gap-4 px-4 py-3 rounded-clinical border border-clinical-primary/30 bg-clinical-primary-soft">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary">
                 Preview mode
               </div>
-              <div className="font-serif italic text-[14px] text-ink-mute mt-1">
+              <div className="text-[13px] text-clinical-muted-fg mt-0.5">
                 Picks aren&apos;t recorded. No attempt row is created.
               </div>
             </div>
             <a
               href={backHref}
-              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+              className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg"
             >
               ← Back
             </a>
@@ -252,19 +264,17 @@ export function CasePlayer({
         )}
 
         {caseData.scenarioIntro && (
-          <PatientChart
+          <CPatientChart
             summary={caseData.scenarioIntro}
-            className="mb-14"
+            className="mb-12"
           />
         )}
 
-        <StageLabel className="mb-[18px]">
-          {stageLabels[stageIndex]}
-        </StageLabel>
+        <CEyebrow className="mb-3">{stageLabels[stageIndex]}</CEyebrow>
 
         <h1
           key={currentStage.id}
-          className="font-serif text-[34px] leading-[1.2] font-normal tracking-[-0.01em] mb-9"
+          className="font-serif text-[32px] md:text-[38px] leading-[1.15] tracking-[-0.02em] text-clinical-fg font-medium mb-8"
         >
           {currentStage.prompt}
         </h1>
@@ -274,15 +284,15 @@ export function CasePlayer({
           <img
             src={currentStage.imageUrl}
             alt=""
-            className="w-full mb-9 rounded-[2px] border border-rule"
+            className="w-full mb-8 rounded-clinical border border-clinical-border"
           />
         )}
 
-        <div className="flex flex-col -mt-px">
+        <div className="flex flex-col gap-2.5">
           {currentChoices.map((choice) => {
             const picked = picks.some((p) => p.choiceId === choice.id);
             return (
-              <ChoiceRow
+              <CChoiceRow
                 key={choice.id}
                 letter={choice.letter}
                 text={choice.text}
@@ -295,47 +305,33 @@ export function CasePlayer({
         </div>
 
         {picks.map((pick) => (
-          <ResponseQuote key={pick.choiceId}>
+          <CResponseQuote key={pick.choiceId}>
             {pick.responseText ?? (
-              <span className="text-ink-fade">
+              <span className="text-clinical-muted-fg">
                 (No patient response authored for this choice.)
               </span>
             )}
-          </ResponseQuote>
+          </CResponseQuote>
         ))}
 
         {allPicksMade && (
-          <div className="flex justify-between items-center mt-8 animate-[femi-fade-in_0.3s_ease_0.1s_both]">
-            <div className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
-              <span>
-                <strong className="text-accent font-medium text-[13px]">
-                  +{stageScore}
-                </strong>{" "}
-                point{stageScore === 1 ? "" : "s"} · stage score:{" "}
-                {stageScore} / {maxPossible}
-              </span>
+          <div className="flex flex-wrap justify-between items-center gap-3 mt-8 animate-[femi-fade-in_0.3s_ease_0.1s_both]">
+            <div className="text-[13px] text-clinical-muted-fg tabular-nums">
+              <strong className="text-clinical-primary font-semibold text-[15px]">
+                +{stageScore}
+              </strong>{" "}
+              point{stageScore === 1 ? "" : "s"} · stage score:{" "}
+              {stageScore} / {maxPossible}
             </div>
-            <Button
-              onClick={handleContinue}
-              disabled={interactionLocked}
-            >
-              {previewMode
-                ? isLast
-                  ? "End preview →"
-                  : "Continue →"
-                : isAdvancing
-                  ? isLast
-                    ? "Finishing…"
-                    : "Saving…"
-                  : isLast
-                    ? "Finish case →"
-                    : "Continue →"}
-            </Button>
+            <CButton onClick={handleContinue} disabled={interactionLocked}>
+              {continueLabel}
+              <ArrowRight weight="bold" className="h-4 w-4" />
+            </CButton>
           </div>
         )}
 
         {!allPicksMade && maxPicks > 1 && (
-          <p className="mt-8 font-mono text-[11px] uppercase tracking-[0.18em] text-ink-fade">
+          <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-muted-fg">
             Pick {remainingPicks} more · {picks.length} of {maxPicks} selected
           </p>
         )}
@@ -344,7 +340,7 @@ export function CasePlayer({
         {startError && (
           <p
             role="alert"
-            className="mt-8 font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+            className="mt-8 text-[13px] text-clinical-destructive"
           >
             {startError}
           </p>
@@ -352,7 +348,7 @@ export function CasePlayer({
         {stageError && (
           <p
             role="alert"
-            className="mt-4 font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+            className="mt-4 text-[13px] text-clinical-destructive"
           >
             {stageError}
           </p>
@@ -413,69 +409,76 @@ function PreviewFeedback({
   );
   const typeIndexer = new Map<Stage["type"], number>();
 
+  const scorePct =
+    maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100);
+
   return (
-    <main className="px-6 md:px-12 py-10 md:py-14 pb-24">
-      <div className="max-w-case mx-auto">
-        <div className="mb-8 -mt-2 flex items-center justify-between gap-4 px-4 py-3 bg-accent-soft border-l-2 border-accent rounded-[2px]">
+    <main className="px-5 md:px-8 py-10 md:py-14 pb-24">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8 flex items-center justify-between gap-4 px-4 py-3 rounded-clinical border border-clinical-primary/30 bg-clinical-primary-soft">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary">
               Preview · scoring report
             </div>
-            <div className="font-serif italic text-[14px] text-ink-mute mt-1">
+            <div className="text-[13px] text-clinical-muted-fg mt-0.5">
               Computed from your preview picks. No attempt was recorded.
             </div>
           </div>
           <a
             href={backHref}
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink whitespace-nowrap"
+            className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg whitespace-nowrap"
           >
             ← Back
           </a>
         </div>
 
-        <StageLabel className="mb-5">Case complete</StageLabel>
-        <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
+        <CEyebrow className="mb-3">Case complete</CEyebrow>
+        <h1 className="font-serif text-[40px] md:text-[48px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
           Nice work.
         </h1>
-        <p className="font-serif italic text-[18px] text-ink-mute mb-12">
+        <p className="text-[17px] text-clinical-muted-fg mb-10">
           {caseData.title}
         </p>
 
-        <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+        <CCard className="bg-clinical-hero px-6 md:px-8 py-7 mb-12 flex items-baseline justify-between gap-6 flex-wrap">
           <div>
-            <div className="label-mono mb-2">Total score</div>
-            <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-              {maxPossible === 0
-                ? 0
-                : Math.round((earned / maxPossible) * 100)}
-              <span className="text-ink-mute text-[28px] ml-1">%</span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+              Total score
+            </p>
+            <div className="font-serif text-[44px] leading-none tabular-nums text-clinical-fg font-medium">
+              {scorePct}
+              <span className="text-clinical-muted-fg text-[26px] ml-1">%</span>
             </div>
-            <div className="mt-2 font-mono text-[12px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+            <p className="mt-2 text-[12.5px] text-clinical-muted-fg tabular-nums">
               {earned} of {maxPossible} points
-            </div>
+            </p>
           </div>
           <div className="text-right">
-            <div className="label-mono mb-2">Preview</div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+              Preview
+            </p>
             <button
               type="button"
               onClick={onRetry}
-              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent"
+              className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-primary"
             >
               Retry preview ↻
             </button>
           </div>
-        </section>
+        </CCard>
 
         {caseData.clinicalTakeaway && (
           <section className="mb-14">
-            <StageLabel className="mb-5">Clinical takeaway</StageLabel>
-            <div className="border-l-2 border-accent pl-6 max-w-read">
-              <ArticleBody markdown={caseData.clinicalTakeaway} />
-            </div>
+            <CEyebrow className="mb-3">Clinical takeaway</CEyebrow>
+            <CCard className="px-6 py-5">
+              <div className="border-l-2 border-clinical-primary pl-5">
+                <ArticleBody markdown={caseData.clinicalTakeaway} />
+              </div>
+            </CCard>
           </section>
         )}
 
-        <StageLabel className="mb-7">Stage breakdown</StageLabel>
+        <CEyebrow className="mb-5">Stage breakdown</CEyebrow>
 
         {breakdown.map((item, i) => {
           const idx = (typeIndexer.get(item.stage.type) ?? 0) + 1;

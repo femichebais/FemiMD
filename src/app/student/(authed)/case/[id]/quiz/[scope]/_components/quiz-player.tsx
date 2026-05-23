@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, StageLabel } from "@/components/ui";
+import { ArrowRight, Check, X } from "@phosphor-icons/react/dist/ssr";
+import {
+  CButton,
+  CCard,
+  CEyebrow,
+} from "@/components/clinical/primitives";
+import { cn } from "@/lib/utils";
 import type { QuestionWithChoices } from "@/lib/queries/quiz";
 import {
   submitQuizAttempt,
@@ -23,8 +29,6 @@ interface GradedState {
 }
 
 export interface QuizPlayerProps {
-  // Required: the quiz itself + display name. Case-related props are
-  // optional and only set when the quiz is case-attached (pre/post test).
   quizId: string;
   quizTitle: string;
   caseId?: string;
@@ -82,20 +86,26 @@ export function QuizPlayer({
     router.refresh();
   };
 
+  const scorePct = !graded
+    ? 0
+    : graded.total === 0
+      ? 0
+      : Math.round((graded.score / graded.total) * 100);
+
   return (
-    <main className="px-6 md:px-12 py-10 md:py-14 pb-20">
-      <div className="max-w-case mx-auto">
-        <StageLabel className="mb-5">
+    <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
+      <div className="max-w-3xl mx-auto">
+        <CEyebrow className="mb-3">
           {scope ? `${SCOPE_LABEL[scope]} · ${caseTitle ?? quizTitle}` : quizTitle}
-        </StageLabel>
-        <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
+        </CEyebrow>
+        <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
           {graded
             ? "Here's how you did."
             : scope === "pre"
               ? "Before you start."
               : "Test what stuck."}
         </h1>
-        <p className="font-serif italic text-[16px] text-ink-mute mb-12">
+        <p className="text-[17px] text-clinical-muted-fg mb-10">
           {graded
             ? "Review the answers below. Retake any time for a fresh set."
             : `${questions.length} question${questions.length === 1 ? "" : "s"} · pick one answer each.`}
@@ -103,29 +113,30 @@ export function QuizPlayer({
 
         {/* Score banner — only post-submit */}
         {graded && (
-          <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+          <CCard className="bg-clinical-hero px-6 md:px-8 py-7 mb-12 flex items-baseline justify-between gap-6 flex-wrap">
             <div>
-              <div className="label-mono mb-2">Your score</div>
-              <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
-                {graded.total === 0
-                  ? 0
-                  : Math.round((graded.score / graded.total) * 100)}
-                <span className="text-ink-mute text-[28px] ml-1">%</span>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+                Your score
+              </p>
+              <div className="font-serif text-[44px] leading-none tabular-nums text-clinical-fg font-medium">
+                {scorePct}
+                <span className="text-clinical-muted-fg text-[26px] ml-1">
+                  %
+                </span>
               </div>
-              <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+              <p className="mt-2 text-[12.5px] text-clinical-muted-fg tabular-nums">
                 {graded.score} of {graded.total} correct
-              </div>
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleRetake}
-                className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
-              >
-                Retake →
-              </button>
-            </div>
-          </section>
+            <button
+              type="button"
+              onClick={handleRetake}
+              className="inline-flex items-center text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-primary"
+            >
+              Retake
+              <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
+            </button>
+          </CCard>
         )}
 
         {/* Questions */}
@@ -133,24 +144,31 @@ export function QuizPlayer({
           const picked = picks.get(q.question.id);
           const g = graded?.graded.get(q.question.id);
           return (
-            <section key={q.question.id} className="mb-12">
-              <StageLabel className="mb-3">
+            <section key={q.question.id} className="mb-10">
+              <CEyebrow className="mb-3">
                 Question {i + 1} of {questions.length}
-              </StageLabel>
-              <h2 className="font-serif text-[22px] leading-[1.3] font-normal tracking-[-0.01em] mb-6">
+              </CEyebrow>
+              <h2 className="font-serif text-[22px] md:text-[24px] leading-[1.25] tracking-[-0.01em] text-clinical-fg font-medium mb-5">
                 {q.question.prompt}
               </h2>
 
-              <ul className="flex flex-col -mt-px">
+              <ul className="flex flex-col gap-2">
                 {q.choices.map((choice, j) => {
                   const isPicked = picked === choice.id;
                   const isCorrect =
-                    g !== undefined &&
-                    g.correctChoiceId === choice.id;
+                    g !== undefined && g.correctChoiceId === choice.id;
                   const isWrongPick =
-                    g !== undefined &&
-                    isPicked &&
-                    !g.isCorrect;
+                    g !== undefined && isPicked && !g.isCorrect;
+
+                  const variant = graded
+                    ? isCorrect
+                      ? "correct"
+                      : isWrongPick
+                        ? "wrong"
+                        : "default"
+                    : isPicked
+                      ? "picked"
+                      : "default";
 
                   return (
                     <li key={choice.id}>
@@ -165,69 +183,58 @@ export function QuizPlayer({
                             return next;
                           });
                         }}
-                        className={
-                          "group relative w-full flex items-baseline gap-5 text-left px-4 pl-[14px] py-[14px] border-b border-rule first:border-t first:border-t-rule transition-colors " +
-                          (graded
-                            ? isCorrect
-                              ? "bg-accent-soft"
-                              : isWrongPick
-                                ? "bg-[#F6E8DE]" // soft warning paper
-                                : ""
-                            : isPicked
-                              ? "bg-accent-soft"
-                              : "hover:bg-paper-2 cursor-pointer")
-                        }
+                        className={cn(
+                          "group w-full flex items-center gap-3 text-left px-4 py-3 rounded-clinical border transition-colors",
+                          !graded && !isSubmitting && "cursor-pointer",
+                          variant === "default" &&
+                            "border-clinical-border bg-clinical-card hover:bg-clinical-muted hover:border-clinical-primary/40",
+                          variant === "picked" &&
+                            "border-clinical-primary bg-clinical-primary-soft",
+                          variant === "correct" &&
+                            "border-clinical-success/40 bg-clinical-success/10",
+                          variant === "wrong" &&
+                            "border-clinical-destructive/40 bg-clinical-destructive/10"
+                        )}
                       >
                         <span
                           aria-hidden
-                          className={
-                            "absolute left-0 top-0 bottom-0 w-[2px] transition-colors " +
-                            (graded
-                              ? isCorrect
-                                ? "bg-accent"
-                                : isWrongPick
-                                  ? "bg-[var(--warning)]"
-                                  : "bg-transparent"
-                              : isPicked
-                                ? "bg-accent"
-                                : "bg-transparent group-hover:bg-accent")
-                          }
-                        />
-                        <span
-                          className={
-                            "font-mono text-[11px] w-[14px] flex-shrink-0 " +
-                            (graded
-                              ? isCorrect
-                                ? "text-accent font-medium"
-                                : isWrongPick
-                                  ? "text-[var(--warning)] font-medium"
-                                  : "text-ink-fade"
-                              : isPicked
-                                ? "text-accent font-medium"
-                                : "text-ink-fade")
-                          }
+                          className={cn(
+                            "grid place-items-center h-8 w-8 rounded-clinical flex-shrink-0 text-[13px] font-bold font-mono",
+                            variant === "default" &&
+                              "bg-clinical-muted text-clinical-muted-fg group-hover:bg-clinical-primary-soft group-hover:text-clinical-primary",
+                            variant === "picked" &&
+                              "bg-clinical-primary text-clinical-primary-fg",
+                            variant === "correct" &&
+                              "bg-clinical-success text-white",
+                            variant === "wrong" &&
+                              "bg-clinical-destructive text-white"
+                          )}
                         >
                           {String.fromCharCode(65 + j)}
                         </span>
-                        <span className="font-serif text-[17px] leading-[1.4] text-ink flex-1">
+                        <span className="font-serif text-[17px] leading-[1.4] text-clinical-fg flex-1">
                           {choice.text}
                         </span>
-                        {graded && (
+                        {graded && (variant === "correct" || variant === "wrong") && (
                           <span
-                            className={
-                              "font-mono text-[10px] uppercase tracking-[0.05em] " +
-                              (isCorrect
-                                ? "text-accent"
-                                : isWrongPick
-                                  ? "text-[var(--warning)]"
-                                  : "text-ink-fade")
-                            }
+                            className={cn(
+                              "inline-flex items-center gap-1 text-[11.5px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap",
+                              variant === "correct"
+                                ? "text-clinical-success"
+                                : "text-clinical-destructive"
+                            )}
                           >
-                            {isCorrect
-                              ? "Correct answer"
-                              : isWrongPick
-                                ? "Your answer"
-                                : ""}
+                            {variant === "correct" ? (
+                              <>
+                                <Check weight="bold" className="h-3.5 w-3.5" />
+                                Correct answer
+                              </>
+                            ) : (
+                              <>
+                                <X weight="bold" className="h-3.5 w-3.5" />
+                                Your answer
+                              </>
+                            )}
                           </span>
                         )}
                       </button>
@@ -241,39 +248,38 @@ export function QuizPlayer({
 
         {/* Submit row */}
         {!graded && (
-          <div className="flex justify-between items-center mt-10 pt-6 border-t border-rule">
-            <div className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
+          <div className="flex flex-wrap justify-between items-center gap-3 mt-10 pt-6 border-t border-clinical-border">
+            <div className="text-[13px] text-clinical-muted-fg tabular-nums">
               {picks.size} of {questions.length} answered
             </div>
             {error && (
-              <p
-                role="alert"
-                className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
-              >
+              <p role="alert" className="text-[13px] text-clinical-destructive">
                 {error}
               </p>
             )}
-            <Button
+            <CButton
               onClick={handleSubmit}
               disabled={!allAnswered || isSubmitting}
             >
-              {isSubmitting ? "Grading…" : "Submit answers →"}
-            </Button>
+              {isSubmitting ? "Grading…" : "Submit answers"}
+              <ArrowRight weight="bold" className="h-4 w-4" />
+            </CButton>
           </div>
         )}
 
         {graded && (
-          <div className="mt-12 pt-6 border-t border-rule flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-            <Link
-              href={`/student/case/${caseId}/feedback`}
-              className="hover:text-ink transition-colors"
-            >
-              Case feedback
-            </Link>
-            <span aria-hidden>·</span>
+          <div className="mt-12 pt-6 border-t border-clinical-border flex items-center gap-4">
+            {caseId && (
+              <Link
+                href={`/student/case/${caseId}/feedback`}
+                className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
+              >
+                Case feedback
+              </Link>
+            )}
             <Link
               href="/student"
-              className="hover:text-ink transition-colors"
+              className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
             >
               All cases
             </Link>

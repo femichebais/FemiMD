@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StageLabel } from "@/components/ui";
+import { ArrowLeft, Check, X } from "@phosphor-icons/react/dist/ssr";
 import { requireRole } from "@/lib/auth/current-user";
 import { getQuizAttemptForTeacher } from "@/lib/queries/teacher";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
+import { cn } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{
@@ -16,6 +18,13 @@ const SCOPE_LABEL: Record<string, string> = {
   pre: "Pre-test",
   post: "Post-test",
 };
+
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
 
 export default async function TeacherQuizAttemptPage({ params }: PageProps) {
   const { id: classroomId, studentId, quizAttemptId } = await params;
@@ -42,113 +51,121 @@ export default async function TeacherQuizAttemptPage({ params }: PageProps) {
       : null;
 
   return (
-    <main className="max-w-case mx-auto px-6 md:px-12 py-10 md:py-14 pb-24">
-      <div className="flex items-baseline justify-between mb-3">
-        <StageLabel>{classroom.name}</StageLabel>
+    <main className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14 pb-24">
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <CEyebrow className="mb-3">{classroom.name}</CEyebrow>
+          <h1 className="font-serif text-[34px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-1">
+            {student.name}&rsquo;s quiz
+          </h1>
+          <p className="text-[16px] text-clinical-muted-fg">
+            {scopeLabel ? `${scopeLabel} · ` : ""}
+            {quiz.caseTitle ?? quiz.title}
+          </p>
+        </div>
         <Link
           href={`/teacher/classroom/${classroomId}/student/${studentId}`}
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
         >
-          ← Back to {student.name}
+          <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+          Back to {student.name}
         </Link>
       </div>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-1">
-        {student.name}&apos;s quiz
-      </h1>
-      <p className="font-serif italic text-[18px] text-ink-mute mb-12">
-        {scopeLabel ? `${scopeLabel} · ` : ""}
-        {quiz.caseTitle ?? quiz.title}
-      </p>
 
-      <section className="bg-paper-2 border border-rule-strong rounded-[2px] px-7 py-7 mb-14 flex items-baseline justify-between gap-6">
+      <CCard className="bg-clinical-hero px-6 md:px-8 py-7 mb-12 flex items-baseline justify-between gap-6 flex-wrap">
         <div>
-          <div className="label-mono mb-2">Score</div>
-          <div className="font-serif text-[44px] leading-none font-normal tabular-nums">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+            Score
+          </p>
+          <div className="font-serif text-[44px] leading-none tabular-nums text-clinical-fg font-medium">
             {pct}
-            <span className="text-ink-mute text-[28px] ml-1">%</span>
+            <span className="text-clinical-muted-fg text-[26px] ml-1">%</span>
           </div>
-          <div className="mt-2 font-mono text-[12px] uppercase tracking-[0.05em] text-ink-mute tabular-nums">
+          <p className="mt-2 text-[12.5px] text-clinical-muted-fg tabular-nums">
             {attempt.score} of {attempt.questionCount} correct
-          </div>
+          </p>
         </div>
         <div className="text-right">
-          <div className="label-mono mb-2">Completed</div>
-          <div className="font-mono text-[12px] text-ink tracking-[0.02em]">
-            {new Intl.DateTimeFormat("en-US", {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            }).format(new Date(attempt.completedAt))}
-          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+            Completed
+          </p>
+          <p className="text-[13px] font-mono text-clinical-fg">
+            {dateFmt.format(new Date(attempt.completedAt))}
+          </p>
         </div>
-      </section>
+      </CCard>
 
-      <StageLabel className="mb-7">Picks per question</StageLabel>
+      <CEyebrow className="mb-5">Picks per question</CEyebrow>
 
       {questions.map((q, i) => (
-        <section key={q.id + "-" + i} className="mb-12">
-          <StageLabel className="mb-3">
+        <section key={q.id + "-" + i} className="mb-10">
+          <CEyebrow className="mb-3">
             Question {i + 1} of {questions.length}
-          </StageLabel>
-          <h2 className="font-serif text-[22px] leading-[1.3] font-normal tracking-[-0.01em] mb-6">
+          </CEyebrow>
+          <h2 className="font-serif text-[22px] md:text-[24px] leading-[1.25] tracking-[-0.01em] text-clinical-fg font-medium mb-5">
             {q.prompt}
           </h2>
 
-          <ul className="flex flex-col -mt-px">
+          <ul className="flex flex-col gap-2">
             {q.choices.map((c, j) => {
               const isPicked = q.pickedChoiceId === c.id;
               const isCorrect = c.isCorrect;
               const isWrongPick = isPicked && !isCorrect;
-              const bg = isCorrect
-                ? "bg-accent-soft"
+              const variant = isCorrect
+                ? "correct"
                 : isWrongPick
-                  ? "bg-[#F6E8DE]"
-                  : "";
-              const ruler = isCorrect
-                ? "bg-accent"
-                : isWrongPick
-                  ? "bg-[var(--warning)]"
-                  : "bg-transparent";
-              const letterColor = isCorrect
-                ? "text-accent font-medium"
-                : isWrongPick
-                  ? "text-[var(--warning)] font-medium"
-                  : "text-ink-fade";
-              const trailing = isCorrect
-                ? "Correct answer"
-                : isWrongPick
-                  ? "Student's pick"
-                  : isPicked
-                    ? "Student's pick"
-                    : "";
+                  ? "wrong"
+                  : "default";
+
               return (
                 <li
                   key={c.id}
-                  className={`relative flex items-baseline gap-5 px-4 pl-[14px] py-[14px] border-b border-rule first:border-t first:border-t-rule ${bg}`}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-clinical border",
+                    variant === "correct" &&
+                      "border-clinical-success/40 bg-clinical-success/10",
+                    variant === "wrong" &&
+                      "border-clinical-destructive/40 bg-clinical-destructive/10",
+                    variant === "default" &&
+                      "border-clinical-border bg-clinical-card"
+                  )}
                 >
                   <span
                     aria-hidden
-                    className={`absolute left-0 top-0 bottom-0 w-[2px] ${ruler}`}
-                  />
-                  <span
-                    className={`font-mono text-[11px] w-[14px] flex-shrink-0 ${letterColor}`}
+                    className={cn(
+                      "grid place-items-center h-8 w-8 rounded-clinical flex-shrink-0 text-[13px] font-bold font-mono",
+                      variant === "correct" && "bg-clinical-success text-white",
+                      variant === "wrong" &&
+                        "bg-clinical-destructive text-white",
+                      variant === "default" &&
+                        "bg-clinical-muted text-clinical-muted-fg"
+                    )}
                   >
                     {String.fromCharCode(65 + j)}
                   </span>
-                  <span className="font-serif text-[17px] leading-[1.4] text-ink flex-1">
+                  <span className="font-serif text-[16px] md:text-[17px] leading-[1.4] text-clinical-fg flex-1">
                     {c.text}
                   </span>
-                  {trailing && (
+                  {(variant === "correct" || variant === "wrong") && (
                     <span
-                      className={
-                        "font-mono text-[10px] uppercase tracking-[0.05em] " +
-                        (isCorrect
-                          ? "text-accent"
-                          : "text-[var(--warning)]")
-                      }
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11.5px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap",
+                        variant === "correct"
+                          ? "text-clinical-success"
+                          : "text-clinical-destructive"
+                      )}
                     >
-                      {trailing}
+                      {variant === "correct" ? (
+                        <>
+                          <Check weight="bold" className="h-3.5 w-3.5" />
+                          Correct answer
+                        </>
+                      ) : (
+                        <>
+                          <X weight="bold" className="h-3.5 w-3.5" />
+                          Student&rsquo;s pick
+                        </>
+                      )}
                     </span>
                   )}
                 </li>
