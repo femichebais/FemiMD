@@ -4,17 +4,21 @@ import { ImageResponse } from "next/og";
 // route. Generated at build time using @vercel/og, no external service.
 
 export const runtime = "edge";
-export const alt = "Femi Medical — Clinical education for the next generation of physicians";
+export const alt =
+  "Femi Medical — Be the doctor. Solve the case. Clinical education for students.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Design tokens inlined — @vercel/og doesn't read CSS variables.
-const PAPER = "#FAF7F2";
-const INK = "#1B2236";
-const INK_MUTE = "#5B6075";
-const INK_FADE = "#8A8E9F";
-const ACCENT = "#1A6B5C";
-const RULE = "rgba(27, 34, 54, 0.08)";
+// Clinical palette — mirrors src/app/globals.css. @vercel/og doesn't read
+// CSS variables, so the HSL values from `--c-*` are flattened to hex here.
+const BG = "#FFFFFF";
+const FG = "#1A2433"; // hsl(215 30% 15%)
+const FG_MUTE = "#65707D"; // hsl(215 16% 47%)
+const FG_FADE = "#99A1AD";
+const PRIMARY = "#0F76E6"; // hsl(211 90% 48%)
+const PRIMARY_GLOW = "#3FB3F8"; // hsl(200 95% 60%)
+const PRIMARY_SOFT = "#EBF4FF"; // hsl(211 100% 96%)
+const BORDER = "#E2E8F0"; // hsl(214 32% 91%)
 
 export default async function OpengraphImage() {
   return new ImageResponse(
@@ -23,89 +27,133 @@ export default async function OpengraphImage() {
         style={{
           width: "100%",
           height: "100%",
-          background: PAPER,
+          background: BG,
           display: "flex",
           flexDirection: "column",
-          padding: "80px",
-          fontFamily: "Georgia, serif",
+          padding: "72px 80px",
+          fontFamily: "Helvetica, Arial, sans-serif",
+          position: "relative",
         }}
       >
-        {/* Top — Femi mark + label */}
+        {/* Soft corner gradient — decorative, mirrors the landing hero. */}
+        <div
+          style={{
+            position: "absolute",
+            top: -180,
+            right: -180,
+            width: 540,
+            height: 540,
+            borderRadius: "50%",
+            background: PRIMARY_GLOW,
+            opacity: 0.18,
+            filter: "blur(80px)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: -160,
+            right: 80,
+            width: 380,
+            height: 380,
+            borderRadius: "50%",
+            background: PRIMARY,
+            opacity: 0.12,
+            filter: "blur(70px)",
+          }}
+        />
+
+        {/* Top — brand mark + label */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            position: "relative",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "16px",
-              color: INK,
-              fontSize: "36px",
-              fontWeight: 500,
+              gap: 18,
+              color: FG,
+              fontSize: 38,
+              fontWeight: 700,
               letterSpacing: "-0.01em",
             }}
           >
             <div
               style={{
-                width: "14px",
-                height: "14px",
-                borderRadius: "50%",
-                background: ACCENT,
+                width: 56,
+                height: 56,
+                borderRadius: 12,
+                background: PRIMARY,
+                color: BG,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 30,
+                fontWeight: 800,
+                letterSpacing: 0,
               }}
-            />
+            >
+              F
+            </div>
             Femi
           </div>
           <div
             style={{
-              fontSize: "16px",
-              fontFamily: "Menlo, monospace",
+              fontSize: 16,
+              fontWeight: 600,
               textTransform: "uppercase",
-              letterSpacing: "0.2em",
-              color: INK_FADE,
+              letterSpacing: "0.18em",
+              color: PRIMARY,
+              background: PRIMARY_SOFT,
+              padding: "10px 16px",
+              borderRadius: 999,
             }}
           >
             Clinical education
           </div>
         </div>
 
-        {/* Main — serif headline */}
+        {/* Main — serif headline + subtitle */}
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            maxWidth: "920px",
+            maxWidth: 960,
+            position: "relative",
           }}
         >
           <div
             style={{
-              fontSize: "80px",
-              lineHeight: 1.05,
+              fontSize: 100,
+              lineHeight: 1.02,
               letterSpacing: "-0.025em",
-              color: INK,
-              fontWeight: 400,
-              fontFamily: "Georgia, serif",
+              color: FG,
+              fontWeight: 500,
+              fontFamily: "Georgia, 'Times New Roman', serif",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            Clinical education for the next generation of physicians.
+            <span>Be the doctor.</span>
+            <span>Solve the case.</span>
           </div>
           <div
             style={{
-              marginTop: "32px",
-              fontSize: "28px",
-              fontStyle: "italic",
-              color: INK_MUTE,
-              lineHeight: 1.4,
-              maxWidth: "780px",
+              marginTop: 28,
+              fontSize: 28,
+              color: FG_MUTE,
+              lineHeight: 1.45,
+              maxWidth: 820,
             }}
           >
-            Patient cases. Stage by stage. Decisions that build clinical
-            judgement.
+            Real patients. Real symptoms. Real decisions — minus the lecture.
           </div>
         </div>
 
@@ -114,17 +162,28 @@ export default async function OpengraphImage() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "baseline",
-            borderTop: `1px solid ${RULE}`,
-            paddingTop: "24px",
-            fontSize: "16px",
-            fontFamily: "Menlo, monospace",
+            alignItems: "center",
+            borderTop: `1px solid ${BORDER}`,
+            paddingTop: 22,
+            fontSize: 16,
+            fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.18em",
-            color: INK_FADE,
+            color: FG_FADE,
+            position: "relative",
           }}
         >
-          <div>Case-based learning</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: PRIMARY,
+              }}
+            />
+            Case-based learning
+          </div>
           <div>Femi Medical</div>
         </div>
       </div>

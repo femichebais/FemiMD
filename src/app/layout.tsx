@@ -47,7 +47,8 @@ const SITE_URL =
       ? `https://${process.env.VERCEL_URL}`
       : "http://localhost:3000");
 const DESCRIPTION =
-  "Patient cases for high school and undergraduate students. Stage by stage. Decisions that build clinical judgement.";
+  "Real patients. Real symptoms. Real decisions — minus the lecture. Interactive patient cases that teach clinical reasoning, step by step.";
+const SOCIAL_TITLE = "Femi Medical — Be the doctor. Solve the case.";
 
 export const metadata: Metadata = {
   // metadataBase resolves relative URLs in metadata (including the OG image
@@ -56,15 +57,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   // `template` lets each route export a short title ("Library") and it
-  // composes as "Library · Femi". Default is used when a route has none.
+  // composes as "Library · Femi". Default keeps the descriptive phrasing
+  // search engines index well; the punchier copy lives in openGraph/twitter.
   title: {
     template: "%s · Femi",
-    default: "Femi Medical — Clinical education",
+    default: "Femi Medical — Clinical education for students",
   },
   description: DESCRIPTION,
 
   openGraph: {
-    title: "Femi Medical",
+    title: SOCIAL_TITLE,
     description: DESCRIPTION,
     type: "website",
     siteName: "Femi Medical",
@@ -75,7 +77,7 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Femi Medical",
+    title: SOCIAL_TITLE,
     description: DESCRIPTION,
   },
 
