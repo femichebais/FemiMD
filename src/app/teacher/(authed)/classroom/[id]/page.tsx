@@ -87,10 +87,10 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-14">
         <Stat label="Students" value={topline.studentCount} />
         <Stat label="Cases released" value={topline.releasedCaseCount} />
-        <Stat label="Case attempts" value={topline.totalAttempts} />
+        <Stat label="Case attempts" value={topline.totalCaseAttempts} />
         <Stat
           label="Case completion"
-          value={`${Math.round(topline.avgCompletion * 100)}%`}
+          value={`${Math.round(topline.caseCompletion * 100)}%`}
         />
         <Stat label="Quizzes released" value={topline.releasedQuizCount} />
         <Stat label="Quiz attempts" value={topline.totalQuizAttempts} />
@@ -113,14 +113,17 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
       ) : (
         <CCard className="overflow-hidden mb-14">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
+            <table className="w-full min-w-[960px]">
               <thead>
                 <tr className="border-b border-clinical-border bg-clinical-muted/50">
                   <Th>Name</Th>
                   <Th>Email</Th>
-                  <Th align="right">Attempts</Th>
-                  <Th align="right">Completed</Th>
-                  <Th align="right">Avg score</Th>
+                  <Th align="right">Case attempts</Th>
+                  <Th align="right">Case completed</Th>
+                  <Th align="right">Case avg</Th>
+                  <Th align="right">Quiz attempts</Th>
+                  <Th align="right">Quiz completed</Th>
+                  <Th align="right">Quiz avg</Th>
                 </tr>
               </thead>
               <tbody>
@@ -141,13 +144,26 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                       {s.email}
                     </td>
                     <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
-                      {s.attemptCount}
+                      {s.caseAttemptCount}
                     </td>
                     <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
-                      {s.completedCount} / {topline.releasedCaseCount}
+                      {s.caseCompletedCount} / {topline.releasedCaseCount}
                     </td>
                     <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
-                      {s.avgScore === null ? "—" : s.avgScore.toFixed(1)}
+                      {s.caseAvgScore === null
+                        ? "—"
+                        : s.caseAvgScore.toFixed(1)}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.quizAttemptCount}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.quizCompletedCount} / {topline.releasedQuizCount}
+                    </td>
+                    <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
+                      {s.quizAvgPct === null
+                        ? "—"
+                        : `${Math.round(s.quizAvgPct)}%`}
                     </td>
                   </tr>
                 ))}
@@ -221,7 +237,7 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
             {availableQuizzes.map((q) => (
               <li
                 key={q.id}
-                className="px-5 py-4 grid grid-cols-[1fr_auto_auto] items-center gap-4"
+                className="px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-4"
               >
                 <span className="font-serif text-[16px] text-clinical-fg truncate">
                   {q.title}
@@ -231,6 +247,13 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                     ? `${q.scope === "pre" ? "Pre" : q.scope === "post" ? "Post" : ""} · ${q.caseTitle}`
                     : (q.topic ?? "standalone")}
                 </span>
+                <Link
+                  href={`/teacher/quiz/${q.id}/preview?back=/teacher/classroom/${id}`}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-clinical-muted-fg hover:text-clinical-primary px-2.5 py-1 rounded-clinical hover:bg-clinical-muted transition-colors"
+                >
+                  <Eye weight="bold" className="h-3.5 w-3.5" />
+                  Preview
+                </Link>
                 <QuizReleaseToggle
                   classroomId={id}
                   quizId={q.id}

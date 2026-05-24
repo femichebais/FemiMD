@@ -188,3 +188,60 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
     .limit(1);
   return row ?? null;
 }
+
+// All non-deleted questions for a quiz, with their choices. Used by the
+// teacher preview (read-only walk through the question bank) and any other
+// caller that wants the full pool rather than a random subset.
+export async function listAllQuestionsForQuiz(
+  quizId: string
+): Promise<QuestionWithChoices[]> {
+  const questions = await db
+    .select()
+    .from(quizQuestions)
+    .where(
+      and(eq(quizQuestions.quizId, quizId), isNull(quizQuestions.deletedAt))
+    )
+    .orderBy(asc(quizQuestions.createdAt));
+
+  if (questions.length === 0) return [];
+
+  const allChoices = await db
+    .select()
+    .from(quizChoices)
+    .where(
+      inArray(
+        quizChoices.questionId,
+        questions.map((q) => q.id)
+      )
+    )
+    .orderBy(asc(quizChoices.displayOrder));
+
+  return questions.map((q) => ({
+    question: q,
+    choices: allChoices.filter((c) => c.questionId === q.id),
+  }));
+}
+
+// Quiz preview detail used by the teacher preview route.
+export interface QuizPreviewDetail {
+  quiz: Quiz;
+  caseTitle: string | null;
+  questions: QuestionWithChoices[];
+}
+
+export async function getQuizForTeacherPreview(
+  quizId: string
+): Promise<QuizPreviewDetail | null> {
+  const [row] = await db
+    .select({
+      quiz: quizzes,
+      caseTitle: cases.title,
+    })
+    .from(quizzes)
+    .leftJoin(cases, eq(cases.id, quizzes.caseId))
+    .where(and(eq(quizzes.id, quizId), isNull(quizzes.deletedAt)))
+    .limit(1);
+  if (!row) return null;
+  const questions = await listAllQuestionsForQuiz(quizId);
+  return { quiz: row.quiz, caseTitle: row.caseTitle, questions };
+}

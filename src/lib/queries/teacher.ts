@@ -66,14 +66,20 @@ export interface ClassroomDetail {
     level: "middle" | "high" | "undergrad";
     inviteCode: string;
   };
-  // Roster — each student with their high-level stats
+  // Roster — each student with their high-level stats. Counts are unfiltered
+  // (every attempt the student has ever made); completed counts are filtered
+  // to currently-released cases/quizzes so the "X / Y" denominator on the
+  // teacher's screen matches.
   roster: Array<{
     id: string;
     name: string;
     email: string;
-    completedCount: number;
-    attemptCount: number;
-    avgScore: number | null;
+    caseAttemptCount: number;
+    caseCompletedCount: number; // distinct released cases the student completed
+    caseAvgScore: number | null; // avg of total_score across the student's completed case attempts
+    quizAttemptCount: number;
+    quizCompletedCount: number; // distinct released quizzes the student attempted
+    quizAvgPct: number | null; // avg score/question_count percent across attempts
   }>;
   // All cases at this level — for the teacher to toggle release
   availableCases: Array<{
@@ -95,12 +101,11 @@ export interface ClassroomDetail {
   topline: {
     studentCount: number;
     releasedCaseCount: number;
-    totalAttempts: number;
-    avgCompletion: number; // 0..1
     releasedQuizCount: number;
+    totalCaseAttempts: number;
     totalQuizAttempts: number;
-    // Fraction of (student, released-quiz) pairs that have at least one
-    // attempt. 0 if no students or no quizzes released.
+    // Fraction of students who completed at least one released case / quiz.
+    caseCompletion: number; // 0..1
     quizCompletion: number; // 0..1
   };
 }
@@ -125,43 +130,23 @@ export async function getClassroomDetail(
 
   if (!classroom) return null;
 
-  // Roster with aggregates
-  const rosterRows = await db
+  // Base roster — student identity only. Per-student aggregates are pulled
+  // separately and merged in JS because Drizzle's `sql` template doesn't
+  // qualify outer-query column references when interpolated inside a
+  // subquery, which historically broke the correlated counts here.
+  const baseRoster = await db
     .select({
       id: students.id,
       name: students.name,
       email: students.email,
-      attemptCount: sql<number>`(
-        SELECT COUNT(*)::int FROM ${caseAttempts}
-        WHERE ${caseAttempts.studentId} = ${students.id}
-      )`,
-      completedCount: sql<number>`(
-        SELECT COUNT(DISTINCT ${caseAttempts.caseId})::int
-        FROM ${caseAttempts}
-        WHERE ${caseAttempts.studentId} = ${students.id}
-          AND ${caseAttempts.completedAt} IS NOT NULL
-          AND EXISTS (
-            SELECT 1 FROM ${quizAttempts}
-            WHERE ${quizAttempts.studentId} = ${students.id}
-              AND ${quizAttempts.caseId} = ${caseAttempts.caseId}
-              AND ${quizAttempts.scope} = 'post'
-          )
-      )`,
-      avgScore: sql<number | null>`(
-        SELECT AVG(${caseAttempts.totalScore})::float
-        FROM ${caseAttempts}
-        WHERE ${caseAttempts.studentId} = ${students.id}
-          AND ${caseAttempts.completedAt} IS NOT NULL
-      )`,
     })
     .from(students)
     .where(
-      and(
-        eq(students.classroomId, classroomId),
-        isNull(students.deletedAt)
-      )
+      and(eq(students.classroomId, classroomId), isNull(students.deletedAt))
     )
     .orderBy(asc(students.name));
+
+  const studentIds = baseRoster.map((r) => r.id);
 
   // All quizzes — case-attached + standalone — with this classroom's
   // release state. Teachers release quizzes independently of case releases.
@@ -212,58 +197,143 @@ export async function getClassroomDetail(
     )
     .orderBy(asc(cases.title));
 
-  // Topline numbers
-  const studentCount = rosterRows.length;
-  const releasedCaseCount = availableCases.filter((c) => c.isReleased).length;
-  const totalAttempts = rosterRows.reduce((s, r) => s + r.attemptCount, 0);
-  const totalCompletable = studentCount * releasedCaseCount;
-  const totalCompleted = rosterRows.reduce(
-    (s, r) => s + r.completedCount,
-    0
-  );
-  const avgCompletion =
-    totalCompletable === 0 ? 0 : totalCompleted / totalCompletable;
-
-  // Quiz analytics — totals across only quizzes released to this classroom
-  // and only students currently in the classroom.
+  const releasedCaseIds = availableCases
+    .filter((c) => c.isReleased)
+    .map((c) => c.id);
   const releasedQuizIds = availableQuizzes
     .filter((q) => q.isReleased)
     .map((q) => q.id);
+
+  // Per-student case aggregates — unfiltered counts. Empty if no students.
+  const caseAggRows =
+    studentIds.length === 0
+      ? []
+      : await db
+          .select({
+            studentId: caseAttempts.studentId,
+            attemptCount: sql<number>`COUNT(*)::int`,
+            avgScore: sql<number | null>`AVG(${caseAttempts.totalScore}) FILTER (WHERE ${caseAttempts.completedAt} IS NOT NULL)`,
+          })
+          .from(caseAttempts)
+          .where(inArray(caseAttempts.studentId, studentIds))
+          .groupBy(caseAttempts.studentId);
+
+  // Per-student distinct released cases completed — filtered to the set
+  // currently released so the X / Y denominator the UI shows is meaningful.
+  const caseCompletedRows =
+    studentIds.length === 0 || releasedCaseIds.length === 0
+      ? []
+      : await db
+          .select({
+            studentId: caseAttempts.studentId,
+            count: sql<number>`COUNT(DISTINCT ${caseAttempts.caseId})::int`,
+          })
+          .from(caseAttempts)
+          .where(
+            and(
+              inArray(caseAttempts.studentId, studentIds),
+              inArray(caseAttempts.caseId, releasedCaseIds),
+              isNotNull(caseAttempts.completedAt)
+            )
+          )
+          .groupBy(caseAttempts.studentId);
+
+  // Per-student quiz aggregates — unfiltered counts; avg as a percent.
+  const quizAggRows =
+    studentIds.length === 0
+      ? []
+      : await db
+          .select({
+            studentId: quizAttempts.studentId,
+            attemptCount: sql<number>`COUNT(*)::int`,
+            avgPct: sql<number | null>`AVG(${quizAttempts.score}::float * 100.0 / NULLIF(${quizAttempts.questionCount}, 0))`,
+          })
+          .from(quizAttempts)
+          .where(inArray(quizAttempts.studentId, studentIds))
+          .groupBy(quizAttempts.studentId);
+
+  // Per-student distinct released quizzes attempted.
+  const quizCompletedRows =
+    studentIds.length === 0 || releasedQuizIds.length === 0
+      ? []
+      : await db
+          .select({
+            studentId: quizAttempts.studentId,
+            count: sql<number>`COUNT(DISTINCT ${quizAttempts.quizId})::int`,
+          })
+          .from(quizAttempts)
+          .where(
+            and(
+              inArray(quizAttempts.studentId, studentIds),
+              inArray(quizAttempts.quizId, releasedQuizIds)
+            )
+          )
+          .groupBy(quizAttempts.studentId);
+
+  const caseAggByStudent = new Map(
+    caseAggRows.map((r) => [r.studentId, r])
+  );
+  const caseCompletedByStudent = new Map(
+    caseCompletedRows.map((r) => [r.studentId, r.count])
+  );
+  const quizAggByStudent = new Map(
+    quizAggRows.map((r) => [r.studentId, r])
+  );
+  const quizCompletedByStudent = new Map(
+    quizCompletedRows.map((r) => [r.studentId, r.count])
+  );
+
+  const roster = baseRoster.map((r) => {
+    const c = caseAggByStudent.get(r.id);
+    const q = quizAggByStudent.get(r.id);
+    return {
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      caseAttemptCount: c?.attemptCount ?? 0,
+      caseCompletedCount: caseCompletedByStudent.get(r.id) ?? 0,
+      caseAvgScore:
+        c?.avgScore === null || c?.avgScore === undefined
+          ? null
+          : Number(c.avgScore),
+      quizAttemptCount: q?.attemptCount ?? 0,
+      quizCompletedCount: quizCompletedByStudent.get(r.id) ?? 0,
+      quizAvgPct:
+        q?.avgPct === null || q?.avgPct === undefined
+          ? null
+          : Number(q.avgPct),
+    };
+  });
+
+  // Topline — completion is the fraction of students who completed at least
+  // one released case (or attempted at least one released quiz). This treats
+  // each student as a unit, regardless of how many incomplete attempts they
+  // also racked up.
+  const studentCount = baseRoster.length;
+  const releasedCaseCount = releasedCaseIds.length;
   const releasedQuizCount = releasedQuizIds.length;
-  const studentIds = rosterRows.map((r) => r.id);
-
-  let totalQuizAttempts = 0;
-  let quizCompletionPairs = 0;
-  if (releasedQuizIds.length > 0 && studentIds.length > 0) {
-    const [{ n: totalQ } = { n: 0 }] = await db
-      .select({ n: sql<number>`COUNT(*)::int` })
-      .from(quizAttempts)
-      .where(
-        and(
-          inArray(quizAttempts.studentId, studentIds),
-          inArray(quizAttempts.quizId, releasedQuizIds)
-        )
-      );
-    totalQuizAttempts = Number(totalQ ?? 0);
-
-    const [{ n: pairs } = { n: 0 }] = await db
-      .select({
-        n: sql<number>`COUNT(DISTINCT (${quizAttempts.studentId}::text || '|' || ${quizAttempts.quizId}::text))::int`,
-      })
-      .from(quizAttempts)
-      .where(
-        and(
-          inArray(quizAttempts.studentId, studentIds),
-          inArray(quizAttempts.quizId, releasedQuizIds)
-        )
-      );
-    quizCompletionPairs = Number(pairs ?? 0);
-  }
-  const totalQuizCompletable = studentCount * releasedQuizCount;
-  const quizCompletion =
-    totalQuizCompletable === 0
+  const totalCaseAttempts = roster.reduce(
+    (s, r) => s + r.caseAttemptCount,
+    0
+  );
+  const totalQuizAttempts = roster.reduce(
+    (s, r) => s + r.quizAttemptCount,
+    0
+  );
+  const studentsWithCompletedCase = roster.filter(
+    (r) => r.caseCompletedCount > 0
+  ).length;
+  const studentsWithQuizAttempt = roster.filter(
+    (r) => r.quizCompletedCount > 0
+  ).length;
+  const caseCompletion =
+    studentCount === 0 || releasedCaseCount === 0
       ? 0
-      : quizCompletionPairs / totalQuizCompletable;
+      : studentsWithCompletedCase / studentCount;
+  const quizCompletion =
+    studentCount === 0 || releasedQuizCount === 0
+      ? 0
+      : studentsWithQuizAttempt / studentCount;
 
   return {
     classroom: {
@@ -272,22 +342,16 @@ export async function getClassroomDetail(
       level: classroom.level,
       inviteCode: classroom.inviteCode,
     },
-    roster: rosterRows.map((r) => ({
-      ...r,
-      avgScore:
-        r.avgScore === null || r.avgScore === undefined
-          ? null
-          : Number(r.avgScore),
-    })),
+    roster,
     availableCases,
     availableQuizzes,
     topline: {
       studentCount,
       releasedCaseCount,
-      totalAttempts,
-      avgCompletion,
       releasedQuizCount,
+      totalCaseAttempts,
       totalQuizAttempts,
+      caseCompletion,
       quizCompletion,
     },
   };
