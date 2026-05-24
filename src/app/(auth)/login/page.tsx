@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LoginForm } from "@/app/(auth)/login-form";
 import { studentTeacherSignIn } from "@/app/actions/auth";
-import { StageLabel } from "@/components/ui";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -17,15 +17,21 @@ export default async function LoginPage({
 
   return (
     <>
-      <StageLabel className="mb-5">Sign in · Student or teacher</StageLabel>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
-        Welcome back.
-      </h1>
-      <p className="font-serif italic text-[16px] text-ink-mute mb-10">
-        Use the email your school or teacher has on file.
-      </p>
+      <div className="text-center mb-8">
+        <CEyebrow className="mb-3 justify-center inline-block">
+          Student or teacher
+        </CEyebrow>
+        <h1 className="font-serif text-[36px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
+          Welcome back.
+        </h1>
+        <p className="text-[15.5px] text-clinical-muted-fg">
+          Use the email your school or teacher has on file.
+        </p>
+      </div>
 
-      <LoginForm action={studentTeacherSignIn} next={next} />
+      <CCard className="p-6 md:p-7">
+        <LoginForm action={studentTeacherSignIn} next={next} />
+      </CCard>
     </>
   );
 }

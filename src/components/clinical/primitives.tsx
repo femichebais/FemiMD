@@ -145,3 +145,45 @@ export function CEyebrow({
     </p>
   );
 }
+
+// ============================================================================
+// Form primitives — CFieldLabel + CInput. Plain styled wrappers, no schema
+// or React-Hook-Form coupling. Pair with native <form> + server actions.
+// ============================================================================
+
+export function CFieldLabel({
+  children,
+  htmlFor,
+  className,
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  className?: string;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={cn(
+        "block text-[12.5px] font-semibold text-clinical-fg mb-2",
+        className
+      )}
+    >
+      {children}
+    </label>
+  );
+}
+
+export function CInput({ className, ...props }: ComponentProps<"input">) {
+  return (
+    <input
+      {...props}
+      className={cn(
+        "w-full h-11 px-3.5 rounded-clinical border border-clinical-border bg-clinical-card",
+        "text-[15px] text-clinical-fg placeholder:text-clinical-muted-fg",
+        "focus:outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary/15",
+        "transition-colors",
+        className
+      )}
+    />
+  );
+}

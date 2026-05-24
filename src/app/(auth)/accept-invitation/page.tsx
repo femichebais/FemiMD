@@ -1,4 +1,4 @@
-import { StageLabel } from "@/components/ui";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
 import { AcceptInvitationForm } from "./accept-form";
 
 // Branded entry point for first-time-invited users (currently teachers —
@@ -8,15 +8,19 @@ import { AcceptInvitationForm } from "./accept-form";
 export default function AcceptInvitationPage() {
   return (
     <>
-      <StageLabel className="mb-5">Welcome to Femi</StageLabel>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
-        You&apos;ve been invited.
-      </h1>
-      <p className="font-serif italic text-[16px] text-ink-mute mb-10">
-        Set a password to finish creating your account.
-      </p>
+      <div className="text-center mb-8">
+        <CEyebrow className="mb-3 inline-block">Welcome to Femi</CEyebrow>
+        <h1 className="font-serif text-[36px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
+          You&rsquo;ve been invited.
+        </h1>
+        <p className="text-[15.5px] text-clinical-muted-fg">
+          Set a password to finish creating your account.
+        </p>
+      </div>
 
-      <AcceptInvitationForm />
+      <CCard className="p-6 md:p-7">
+        <AcceptInvitationForm />
+      </CCard>
     </>
   );
 }

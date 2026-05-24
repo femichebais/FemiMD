@@ -1,4 +1,4 @@
-import { StageLabel } from "@/components/ui";
+import { CCard, CEyebrow } from "@/components/clinical/primitives";
 import { ResetPasswordForm } from "./reset-password-form";
 
 // Supabase recovery flow lands here with tokens in the URL hash:
@@ -8,15 +8,19 @@ import { ResetPasswordForm } from "./reset-password-form";
 export default function ResetPasswordPage() {
   return (
     <>
-      <StageLabel className="mb-5">Reset password</StageLabel>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
-        Set a new password.
-      </h1>
-      <p className="font-serif italic text-[16px] text-ink-mute mb-10">
-        Choose something you&apos;ll remember.
-      </p>
+      <div className="text-center mb-8">
+        <CEyebrow className="mb-3 inline-block">Reset password</CEyebrow>
+        <h1 className="font-serif text-[36px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
+          Set a new password.
+        </h1>
+        <p className="text-[15.5px] text-clinical-muted-fg">
+          Choose something you&apos;ll remember.
+        </p>
+      </div>
 
-      <ResetPasswordForm />
+      <CCard className="p-6 md:p-7">
+        <ResetPasswordForm />
+      </CCard>
     </>
   );
 }

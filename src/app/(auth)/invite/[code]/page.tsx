@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { classrooms, teachers, schools } from "@/db/schema";
-import { StageLabel } from "@/components/ui";
+import {
+  CBadge,
+  CCard,
+  CEyebrow,
+} from "@/components/clinical/primitives";
 import { currentUser } from "@/lib/auth/current-user";
 import { InviteSignupForm } from "./invite-form";
 
@@ -19,7 +23,6 @@ const LEVEL_LABEL: Record<string, string> = {
 export default async function InvitePage({ params }: PageProps) {
   const { code } = await params;
 
-  // Look up the classroom + teacher + school to show context.
   let row;
   try {
     [row] = await db
@@ -53,33 +56,41 @@ export default async function InvitePage({ params }: PageProps) {
 
   return (
     <>
-      <StageLabel className="mb-5">Join classroom</StageLabel>
-      <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em] mb-3">
-        {row.name}
-      </h1>
-      <p className="font-serif italic text-[16px] text-ink-mute mb-2">
-        {LEVEL_LABEL[row.level] ?? row.level}
-        {row.teacherName ? ` · ${row.teacherName}` : ""}
-      </p>
-      {row.schoolName && (
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-fade mb-10">
-          {row.schoolName}
-        </p>
-      )}
-
-      {session ? (
-        <div className="border border-rule-strong rounded-[2px] p-6 bg-paper-2">
-          <p className="font-serif text-[15px] mb-3">
-            You&apos;re already signed in.
-          </p>
-          <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
-            Sign out first if you want to register a new student account
-            with this invite.
-          </p>
+      <div className="text-center mb-8">
+        <CEyebrow className="mb-3 inline-block">Join classroom</CEyebrow>
+        <h1 className="font-serif text-[34px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
+          {row.name}
+        </h1>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <CBadge tone="neutral">
+            {LEVEL_LABEL[row.level] ?? row.level}
+          </CBadge>
+          {row.teacherName && (
+            <CBadge tone="primary">{row.teacherName}</CBadge>
+          )}
         </div>
-      ) : (
-        <InviteSignupForm code={row.inviteCode} />
-      )}
+        {row.schoolName && (
+          <p className="mt-3 text-[12.5px] font-mono text-clinical-muted-fg">
+            {row.schoolName}
+          </p>
+        )}
+      </div>
+
+      <CCard className="p-6 md:p-7">
+        {session ? (
+          <div>
+            <p className="font-serif text-[17px] text-clinical-fg mb-2">
+              You&rsquo;re already signed in.
+            </p>
+            <p className="text-[13.5px] text-clinical-muted-fg">
+              Sign out first if you want to register a new student account
+              with this invite.
+            </p>
+          </div>
+        ) : (
+          <InviteSignupForm code={row.inviteCode} />
+        )}
+      </CCard>
     </>
   );
 }

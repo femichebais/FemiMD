@@ -2,7 +2,12 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import type { SignInFormState } from "@/app/actions/auth";
 
 export interface LoginFormProps {
@@ -27,52 +32,57 @@ export function LoginForm({
   >(action, {});
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="next" value={next ?? ""} />
 
       <div>
-        <FieldLabel htmlFor="email">Email</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="email">Email</CFieldLabel>
+        <CInput
           id="email"
           name="email"
           type="email"
           autoComplete="email"
           required
           defaultValue={state.email ?? ""}
+          placeholder="you@school.edu"
         />
       </div>
 
       <div>
-        <FieldLabel htmlFor="password">Password</FieldLabel>
-        <Input
+        <div className="flex items-center justify-between mb-2">
+          <CFieldLabel htmlFor="password" className="mb-0">
+            Password
+          </CFieldLabel>
+          <Link
+            href={forgotHref}
+            className="text-[12px] font-medium text-clinical-primary hover:text-clinical-fg transition-colors"
+          >
+            Forgot?
+          </Link>
+        </div>
+        <CInput
           id="password"
           name="password"
           type="password"
           autoComplete="current-password"
           required
+          placeholder="••••••••"
         />
       </div>
 
       {state.error && (
         <p
-          className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+          className="text-[13px] text-clinical-destructive"
           role="alert"
         >
           {state.error}
         </p>
       )}
 
-      <div className="flex items-center justify-between pt-2">
-        <Link
-          href={forgotHref}
-          className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
-        >
-          Forgot password
-        </Link>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Signing in…" : "Sign in →"}
-        </Button>
-      </div>
+      <CButton type="submit" disabled={isPending} className="mt-2">
+        {isPending ? "Signing in…" : "Sign in"}
+        <ArrowRight weight="bold" className="h-4 w-4" />
+      </CButton>
     </form>
   );
 }

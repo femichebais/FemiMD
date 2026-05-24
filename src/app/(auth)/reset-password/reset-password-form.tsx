@@ -3,7 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type SessionState =
@@ -31,7 +36,6 @@ export function ResetPasswordForm() {
 
   // Extract tokens from the URL hash on mount. Supabase's implicit flow
   // puts access_token + refresh_token + type=recovery in the fragment.
-  // Error case: the hash contains error=...&error_code=... (e.g. expired).
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -49,7 +53,6 @@ export function ResetPasswordForm() {
         kind: "error",
         message: decodeURIComponent(error.replace(/\+/g, " ")),
       });
-      // Strip the hash so a refresh doesn't replay the error.
       window.history.replaceState({}, "", window.location.pathname);
       return;
     }
@@ -74,7 +77,6 @@ export function ResetPasswordForm() {
           return;
         }
         setSessionState({ kind: "ready" });
-        // Clean the URL so the tokens don't sit in the address bar.
         window.history.replaceState({}, "", window.location.pathname);
       });
   }, []);
@@ -101,13 +103,9 @@ export function ResetPasswordForm() {
       }
       setDone(true);
 
-      // Send them to the dashboard appropriate for their role. The session
-      // we established via setSession() carries the JWT with app_metadata.
       const role = (data.user.app_metadata as Record<string, unknown>)
         ?.role as string | undefined;
       const dest = (role && DASHBOARD_FOR[role]) || "/";
-      // router.refresh first so server components see the new session,
-      // then push so we navigate to the role's home.
       router.refresh();
       router.push(dest);
     });
@@ -115,7 +113,7 @@ export function ResetPasswordForm() {
 
   if (sessionState.kind === "loading") {
     return (
-      <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
+      <p className="text-[13.5px] text-clinical-muted-fg">
         Verifying your reset link…
       </p>
     );
@@ -123,13 +121,16 @@ export function ResetPasswordForm() {
 
   if (sessionState.kind === "no-token") {
     return (
-      <div className="border border-rule-strong bg-paper-2 rounded-[2px] p-6">
-        <p className="font-serif text-[16px] mb-3">
+      <div>
+        <p className="font-serif text-[17px] text-clinical-fg mb-2">
           This page needs a reset link.
         </p>
-        <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em] mb-3">
+        <p className="text-[13.5px] text-clinical-muted-fg">
           Request one from{" "}
-          <Link href="/forgot-password" className="underline">
+          <Link
+            href="/forgot-password"
+            className="text-clinical-primary hover:underline font-medium"
+          >
             forgot password
           </Link>
           .
@@ -140,18 +141,19 @@ export function ResetPasswordForm() {
 
   if (sessionState.kind === "error") {
     return (
-      <div className="border border-rule-strong bg-paper-2 rounded-[2px] p-6">
-        <p className="font-serif text-[16px] mb-3">
+      <div>
+        <p className="font-serif text-[17px] text-clinical-fg mb-2">
           That reset link is no longer valid.
         </p>
-        <p className="font-mono text-[11px] text-[var(--warning)] tracking-[0.05em] mb-4">
+        <p className="text-[13px] text-clinical-destructive mb-4">
           {sessionState.message}
         </p>
         <Link
           href="/forgot-password"
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-primary hover:text-clinical-fg transition-colors"
         >
-          Request a fresh link →
+          Request a fresh link
+          <ArrowRight weight="bold" className="h-3.5 w-3.5" />
         </Link>
       </div>
     );
@@ -159,17 +161,17 @@ export function ResetPasswordForm() {
 
   if (done) {
     return (
-      <p className="font-serif text-[16px]">
+      <p className="font-serif text-[17px] text-clinical-fg">
         Password updated. Redirecting you in…
       </p>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div>
-        <FieldLabel htmlFor="password">New password</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="password">New password</CFieldLabel>
+        <CInput
           id="password"
           name="password"
           type="password"
@@ -178,15 +180,16 @@ export function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="new-password"
+          placeholder="••••••••"
         />
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+        <p className="mt-2 text-[12px] text-clinical-muted-fg">
           8 characters or more.
         </p>
       </div>
 
       <div>
-        <FieldLabel htmlFor="confirm">Confirm new password</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="confirm">Confirm new password</CFieldLabel>
+        <CInput
           id="confirm"
           name="confirm"
           type="password"
@@ -195,23 +198,20 @@ export function ResetPasswordForm() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
+          placeholder="••••••••"
         />
       </div>
 
       {formError && (
-        <p
-          role="alert"
-          className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
-        >
+        <p role="alert" className="text-[13px] text-clinical-destructive">
           {formError}
         </p>
       )}
 
-      <div className="flex items-center justify-end pt-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving…" : "Set password →"}
-        </Button>
-      </div>
+      <CButton type="submit" disabled={isSubmitting} className="mt-2">
+        {isSubmitting ? "Saving…" : "Set password"}
+        <ArrowRight weight="bold" className="h-4 w-4" />
+      </CButton>
     </form>
   );
 }

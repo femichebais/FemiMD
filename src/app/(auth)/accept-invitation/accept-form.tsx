@@ -3,7 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type SessionState =
@@ -156,7 +161,7 @@ export function AcceptInvitationForm() {
 
   if (sessionState.kind === "loading") {
     return (
-      <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
+      <p className="text-[13.5px] text-clinical-muted-fg">
         Verifying your invite link…
       </p>
     );
@@ -164,13 +169,16 @@ export function AcceptInvitationForm() {
 
   if (sessionState.kind === "no-token") {
     return (
-      <div className="border border-rule-strong bg-paper-2 rounded-[2px] p-6">
-        <p className="font-serif text-[16px] mb-3">
+      <div>
+        <p className="font-serif text-[17px] text-clinical-fg mb-2">
           This page needs an invite link.
         </p>
-        <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
+        <p className="text-[13.5px] text-clinical-muted-fg">
           Ask your admin to resend the email, or{" "}
-          <Link href="/login" className="underline">
+          <Link
+            href="/login"
+            className="text-clinical-primary hover:underline font-medium"
+          >
             sign in
           </Link>{" "}
           if you already have an account.
@@ -181,14 +189,14 @@ export function AcceptInvitationForm() {
 
   if (sessionState.kind === "error") {
     return (
-      <div className="border border-rule-strong bg-paper-2 rounded-[2px] p-6">
-        <p className="font-serif text-[16px] mb-3">
-          This invite link isn&apos;t valid.
+      <div>
+        <p className="font-serif text-[17px] text-clinical-fg mb-2">
+          This invite link isn&rsquo;t valid.
         </p>
-        <p className="font-mono text-[11px] text-[var(--warning)] tracking-[0.05em] mb-4">
+        <p className="text-[13px] text-clinical-destructive mb-3">
           {sessionState.message}
         </p>
-        <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em]">
+        <p className="text-[13.5px] text-clinical-muted-fg">
           Ask your admin to send a new one.
         </p>
       </div>
@@ -197,7 +205,7 @@ export function AcceptInvitationForm() {
 
   if (done) {
     return (
-      <p className="font-serif text-[16px]">
+      <p className="font-serif text-[17px] text-clinical-fg">
         Password set. Redirecting you in…
       </p>
     );
@@ -213,28 +221,27 @@ export function AcceptInvitationForm() {
 
   return (
     <>
-      <div className="border-l-2 border-accent bg-accent-soft px-5 py-4 mb-8 rounded-[2px]">
-        <div className="label-mono mb-1">You&apos;ve been added</div>
-        <p className="font-serif text-[16px] text-ink leading-[1.5]">
-          Hi <strong className="font-medium">{greetingName}</strong> — your
-          admin added you to Femi{" "}
-          {roleLabel}
+      <div className="rounded-clinical border border-clinical-primary/20 bg-clinical-primary-soft px-4 py-3 mb-6">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-1">
+          You&rsquo;ve been added
+        </div>
+        <p className="font-serif text-[15.5px] text-clinical-fg leading-[1.45]">
+          Hi <strong className="font-semibold">{greetingName}</strong> — your
+          admin added you to Femi {roleLabel}
           {context.schoolName ? (
             <>
               {" "}at{" "}
-              <strong className="font-medium not-italic">
-                {context.schoolName}
-              </strong>
+              <strong className="font-semibold">{context.schoolName}</strong>
             </>
           ) : null}
           .
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div>
-          <FieldLabel htmlFor="password">Choose a password</FieldLabel>
-          <Input
+          <CFieldLabel htmlFor="password">Choose a password</CFieldLabel>
+          <CInput
             id="password"
             name="password"
             type="password"
@@ -243,15 +250,16 @@ export function AcceptInvitationForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
+            placeholder="••••••••"
           />
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+          <p className="mt-2 text-[12px] text-clinical-muted-fg">
             8 characters or more.
           </p>
         </div>
 
         <div>
-          <FieldLabel htmlFor="confirm">Confirm password</FieldLabel>
-          <Input
+          <CFieldLabel htmlFor="confirm">Confirm password</CFieldLabel>
+          <CInput
             id="confirm"
             name="confirm"
             type="password"
@@ -260,23 +268,20 @@ export function AcceptInvitationForm() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
+            placeholder="••••••••"
           />
         </div>
 
         {formError && (
-          <p
-            role="alert"
-            className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
-          >
+          <p role="alert" className="text-[13px] text-clinical-destructive">
             {formError}
           </p>
         )}
 
-        <div className="flex items-center justify-end pt-2">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Activate my account →"}
-          </Button>
-        </div>
+        <CButton type="submit" disabled={isSubmitting} className="mt-2">
+          {isSubmitting ? "Saving…" : "Activate my account"}
+          <ArrowRight weight="bold" className="h-4 w-4" />
+        </CButton>
       </form>
     </>
   );

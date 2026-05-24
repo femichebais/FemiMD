@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import { inviteSignup, type InviteSignupState } from "./actions";
 
 export function InviteSignupForm({ code }: { code: string }) {
@@ -11,61 +16,60 @@ export function InviteSignupForm({ code }: { code: string }) {
   >(inviteSignup, {});
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="code" value={code} />
 
       <div>
-        <FieldLabel htmlFor="name">Your name</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="name">Your name</CFieldLabel>
+        <CInput
           id="name"
           name="name"
           required
           autoComplete="name"
           defaultValue={state.values?.name ?? ""}
+          placeholder="Your first and last name"
         />
       </div>
 
       <div>
-        <FieldLabel htmlFor="email">Email</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="email">Email</CFieldLabel>
+        <CInput
           id="email"
           name="email"
           type="email"
           required
           autoComplete="email"
           defaultValue={state.values?.email ?? ""}
+          placeholder="you@school.edu"
         />
       </div>
 
       <div>
-        <FieldLabel htmlFor="password">Password</FieldLabel>
-        <Input
+        <CFieldLabel htmlFor="password">Password</CFieldLabel>
+        <CInput
           id="password"
           name="password"
           type="password"
           required
           minLength={8}
           autoComplete="new-password"
+          placeholder="••••••••"
         />
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+        <p className="mt-2 text-[12px] text-clinical-muted-fg">
           8 characters or more.
         </p>
       </div>
 
       {state.error && (
-        <p
-          role="alert"
-          className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
-        >
+        <p role="alert" className="text-[13px] text-clinical-destructive">
           {state.error}
         </p>
       )}
 
-      <div className="flex items-center justify-end pt-2">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Creating account…" : "Join classroom →"}
-        </Button>
-      </div>
+      <CButton type="submit" disabled={isPending} className="mt-2">
+        {isPending ? "Creating account…" : "Join classroom"}
+        <ArrowRight weight="bold" className="h-4 w-4" />
+      </CButton>
     </form>
   );
 }
