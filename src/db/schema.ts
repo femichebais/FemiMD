@@ -480,6 +480,12 @@ export const libraryPageLevels = pgTable(
 
 // Card-based article sections. Admin picks which sections appear per page and
 // the order they render in. Each section is its own markdown body.
+//
+// A section is either typed (one of the 8 presets — uses its label + icon)
+// or custom (free-form title, default icon). Exactly one of `type`/`title`
+// is set; a CHECK constraint in the migration enforces this. The unique
+// index on (page, type) still prevents duplicate preset types, but NULL
+// types are treated as distinct so multiple custom sections per page work.
 export const libraryPageSections = pgTable(
   "library_page_sections",
   {
@@ -487,7 +493,8 @@ export const libraryPageSections = pgTable(
     libraryPageId: uuid("library_page_id")
       .notNull()
       .references(() => libraryPages.id, { onDelete: "cascade" }),
-    type: librarySectionTypeEnum("type").notNull(),
+    type: librarySectionTypeEnum("type"),
+    title: text("title"),
     bodyMarkdown: text("body_markdown").notNull(),
     position: integer("position").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

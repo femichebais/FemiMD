@@ -1,15 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, X } from "@phosphor-icons/react/dist/ssr";
+import {
+  ArrowDown,
+  ArrowUp,
+  Plus,
+  X,
+} from "@phosphor-icons/react/dist/ssr";
 import type { LibrarySectionType } from "@/db/schema";
 import {
   SECTION_TYPE_LABELS,
   SECTION_TYPE_ORDER,
 } from "@/lib/library/section-types";
 
+// A section is either a preset (one of 8 enum types — gets a label + icon
+// from SECTION_TYPE_LABELS / ICON_BY_TYPE) or fully custom (free-form title).
+// Exactly one of `type` / `title` is set.
 export interface SectionInput {
-  type: LibrarySectionType;
+  type: LibrarySectionType | null;
+  title: string | null;
   bodyMarkdown: string;
 }
 
@@ -29,28 +38,64 @@ const PLACEHOLDER: Record<LibrarySectionType, string> = {
   treatment: "First-line: proton-pump inhibitor.",
   what_to_do: "- Schedule outpatient clinic follow-up",
 };
+const CUSTOM_PLACEHOLDER = "Write the card body in markdown.";
 
-// Controlled editor — sections live in React state and are serialized to a
-// hidden `<input name={name}>` as JSON on every change so a plain server
-// action receives them as one form field.
+function sectionLabel(s: SectionInput): string {
+  if (s.type) return SECTION_TYPE_LABELS[s.type];
+  return s.title ?? "Untitled";
+}
+
+function sectionKey(s: SectionInput, i: number): string {
+  return s.type ? `t-${s.type}` : `c-${i}-${s.title ?? ""}`;
+}
+
 export function SectionsEditor({
   name,
   defaultValue = [],
 }: SectionsEditorProps) {
   const [sections, setSections] = useState<SectionInput[]>(defaultValue);
-  const [addOpen, setAddOpen] = useState(false);
+  // "menu" = showing the preset list + "custom" option.
+  // "custom" = showing the title input for a new custom section.
+  const [addState, setAddState] = useState<"closed" | "menu" | "custom">(
+    "closed"
+  );
+  const [customTitle, setCustomTitle] = useState("");
 
-  const usedTypes = new Set(sections.map((s) => s.type));
+  const usedTypes = new Set(
+    sections.map((s) => s.type).filter((t): t is LibrarySectionType => !!t)
+  );
   const available = SECTION_TYPE_ORDER.filter((t) => !usedTypes.has(t));
 
-  function addSection(type: LibrarySectionType) {
-    setSections((prev) => [...prev, { type, bodyMarkdown: "" }]);
-    setAddOpen(false);
+  function addPreset(type: LibrarySectionType) {
+    setSections((prev) => [
+      ...prev,
+      { type, title: null, bodyMarkdown: "" },
+    ]);
+    setAddState("closed");
+  }
+
+  function addCustom() {
+    const title = customTitle.trim();
+    if (!title) return;
+    setSections((prev) => [
+      ...prev,
+      { type: null, title, bodyMarkdown: "" },
+    ]);
+    setCustomTitle("");
+    setAddState("closed");
   }
 
   function updateBody(index: number, body: string) {
     setSections((prev) =>
       prev.map((s, i) => (i === index ? { ...s, bodyMarkdown: body } : s))
+    );
+  }
+
+  function renameCustom(index: number, title: string) {
+    setSections((prev) =>
+      prev.map((s, i) =>
+        i === index && s.type === null ? { ...s, title } : s
+      )
     );
   }
 
@@ -81,14 +126,29 @@ export function SectionsEditor({
       <ul className="flex flex-col gap-4 mb-4">
         {sections.map((section, i) => (
           <li
-            key={section.type}
+            key={sectionKey(section, i)}
             className="border border-rule-strong rounded-[2px] bg-surface"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-rule">
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-mute">
-                {SECTION_TYPE_LABELS[section.type]}
-              </span>
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-rule">
+              {section.type ? (
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-mute">
+                  {sectionLabel(section)}
+                </span>
+              ) : (
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-fade flex-shrink-0">
+                    Custom
+                  </span>
+                  <input
+                    type="text"
+                    value={section.title ?? ""}
+                    onChange={(e) => renameCustom(i, e.target.value)}
+                    placeholder="Card title"
+                    className="flex-1 min-w-0 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-ink bg-paper-2 border border-rule rounded-[2px] focus:outline-none focus:border-accent"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <SectionIconButton
                   label="Move up"
                   onClick={() => move(i, -1)}
@@ -115,7 +175,9 @@ export function SectionsEditor({
               value={section.bodyMarkdown}
               onChange={(e) => updateBody(i, e.target.value)}
               rows={4}
-              placeholder={PLACEHOLDER[section.type]}
+              placeholder={
+                section.type ? PLACEHOLDER[section.type] : CUSTOM_PLACEHOLDER
+              }
               className="w-full px-4 py-3 font-mono text-[13px] leading-[1.6] text-ink bg-surface border-0 focus:outline-none resize-y"
             />
           </li>
@@ -123,18 +185,18 @@ export function SectionsEditor({
       </ul>
 
       <div className="relative">
-        {addOpen ? (
+        {addState === "menu" ? (
           <div className="border border-rule-strong bg-surface rounded-[2px] p-3 flex flex-col gap-1">
             {available.length === 0 ? (
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade px-2 py-1">
-                All sections added.
+                All preset sections added.
               </p>
             ) : (
               available.map((type) => (
                 <button
                   key={type}
                   type="button"
-                  onClick={() => addSection(type)}
+                  onClick={() => addPreset(type)}
                   className="text-left px-3 py-2 text-[14px] hover:bg-paper-2 rounded-[2px]"
                 >
                   {SECTION_TYPE_LABELS[type]}
@@ -143,8 +205,52 @@ export function SectionsEditor({
             )}
             <button
               type="button"
-              onClick={() => setAddOpen(false)}
+              onClick={() => {
+                setAddState("custom");
+                setCustomTitle("");
+              }}
+              className="text-left px-3 py-2 text-[14px] hover:bg-paper-2 rounded-[2px] border-t border-rule mt-1 pt-3 text-accent"
+            >
+              + Custom title…
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddState("closed")}
               className="mt-1 text-left px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : addState === "custom" ? (
+          <div className="border border-rule-strong bg-surface rounded-[2px] p-3 flex items-center gap-2">
+            <input
+              type="text"
+              autoFocus
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustom();
+                } else if (e.key === "Escape") {
+                  setAddState("closed");
+                }
+              }}
+              placeholder="e.g. Differential diagnosis"
+              className="flex-1 px-3 py-2 text-[14px] text-ink bg-surface border border-rule-strong rounded-[2px] focus:outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={addCustom}
+              disabled={!customTitle.trim()}
+              className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent border border-accent rounded-[2px] hover:bg-accent-soft disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddState("closed")}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink px-2"
             >
               Cancel
             </button>
@@ -152,9 +258,8 @@ export function SectionsEditor({
         ) : (
           <button
             type="button"
-            onClick={() => setAddOpen(true)}
-            disabled={available.length === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-rule-strong rounded-[2px] font-mono text-[10px] uppercase tracking-[0.18em] text-ink hover:bg-paper-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setAddState("menu")}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-rule-strong rounded-[2px] font-mono text-[10px] uppercase tracking-[0.18em] text-ink hover:bg-paper-2"
           >
             <Plus className="h-3.5 w-3.5" />
             Add section

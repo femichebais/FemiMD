@@ -19,7 +19,10 @@ const STORAGE_BUCKET = "femi-media";
 export type Level = "middle" | "high" | "undergrad";
 
 export interface SectionInput {
-  type: LibrarySectionType;
+  // Exactly one of `type` / `title` is set. type = preset (label + icon),
+  // title = custom free-form.
+  type: LibrarySectionType | null;
+  title: string | null;
   bodyMarkdown: string;
 }
 
@@ -52,10 +55,24 @@ function parseSections(raw: string): SectionInput[] {
   for (const item of parsed) {
     if (!item || typeof item !== "object") continue;
     const t = (item as { type?: unknown }).type;
+    const title = (item as { title?: unknown }).title;
     const b = (item as { bodyMarkdown?: unknown }).bodyMarkdown;
-    if (typeof t !== "string" || !isSectionType(t)) continue;
     if (typeof b !== "string") continue;
-    out.push({ type: t, bodyMarkdown: b });
+
+    // Resolve to exactly one of (type, title). Reject rows with neither
+    // or with an unknown type.
+    const validType = typeof t === "string" && isSectionType(t) ? t : null;
+    const trimmedTitle =
+      typeof title === "string" && title.trim().length > 0
+        ? title.trim()
+        : null;
+
+    if (validType) {
+      out.push({ type: validType, title: null, bodyMarkdown: b });
+    } else if (trimmedTitle) {
+      out.push({ type: null, title: trimmedTitle, bodyMarkdown: b });
+    }
+    // else: silently skip — invalid row
   }
   return out;
 }
@@ -85,14 +102,18 @@ function validate(values: ReturnType<typeof readFormValues>): string | null {
   if (values.sections.length === 0)
     return "Add at least one section card.";
   for (const s of values.sections) {
-    if (!s.bodyMarkdown.trim())
-      return `Section "${s.type}" is empty. Add content or remove it.`;
+    if (!s.bodyMarkdown.trim()) {
+      const label = s.type ?? s.title ?? "(untitled)";
+      return `Section "${label}" is empty. Add content or remove it.`;
+    }
   }
-  // Duplicate types should be impossible (UI prevents it) but enforce.
-  const seen = new Set<string>();
+  // Duplicate preset types should be impossible (UI prevents it) but enforce.
+  // Custom-titled sections (type === null) don't share this constraint.
+  const seenTypes = new Set<string>();
   for (const s of values.sections) {
-    if (seen.has(s.type)) return `Duplicate section: ${s.type}.`;
-    seen.add(s.type);
+    if (s.type === null) continue;
+    if (seenTypes.has(s.type)) return `Duplicate section: ${s.type}.`;
+    seenTypes.add(s.type);
   }
   return null;
 }
@@ -135,6 +156,7 @@ export async function createLibraryPage(
         values.sections.map((s, i) => ({
           libraryPageId: pageId,
           type: s.type,
+          title: s.title,
           bodyMarkdown: s.bodyMarkdown,
           position: i,
         }))
@@ -205,6 +227,7 @@ export async function updateLibraryPage(
         values.sections.map((s, i) => ({
           libraryPageId: pageId,
           type: s.type,
+          title: s.title,
           bodyMarkdown: s.bodyMarkdown,
           position: i,
         }))

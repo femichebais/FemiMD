@@ -45,9 +45,13 @@ export function LibraryCards({ sections }: LibraryCardsProps) {
 }
 
 function LibraryCard({ section }: { section: LibraryPageSection }) {
-  const Icon = ICON_BY_TYPE[section.type];
+  // Typed sections get a preset icon + label; custom-titled sections use
+  // a default book icon and render the admin-provided title as-is.
+  const Icon = section.type ? ICON_BY_TYPE[section.type] : BookOpen;
   const isAccent = section.type === ACCENT_SECTION_TYPE;
-  const label = SECTION_TYPE_LABELS[section.type];
+  const label = section.type
+    ? SECTION_TYPE_LABELS[section.type]
+    : (section.title ?? "Untitled");
 
   return (
     <article

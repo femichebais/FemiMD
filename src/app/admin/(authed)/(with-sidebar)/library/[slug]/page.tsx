@@ -49,12 +49,14 @@ export default async function EditLibraryPage({ params }: PageProps) {
             data.sections.length > 0
               ? data.sections.map((s) => ({
                   type: s.type,
+                  title: s.title,
                   bodyMarkdown: s.bodyMarkdown,
                 }))
               : data.page.bodyMarkdown
                 ? [
                     {
                       type: "description" as const,
+                      title: null,
                       bodyMarkdown: data.page.bodyMarkdown,
                     },
                   ]

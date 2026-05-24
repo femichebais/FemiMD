@@ -43,6 +43,7 @@ export default async function StudentAuthedLayout({
         brandHref="/student"
         links={[
           { label: "Cases", href: "/student" },
+          { label: "Quizzes", href: "/student/quizzes" },
           { label: "Clinical Library", href: "/student/library" },
           { label: "Progress", href: "/student/progress" },
         ]}
