@@ -52,12 +52,8 @@ export default async function StudentDashboard() {
           </p>
           <div className="flex flex-wrap items-center gap-3">
             {firstAvailable ? (
-              <CLinkButton
-                href={`/student/case/${firstAvailable.id}`}
-                size="lg"
-                variant="primary"
-              >
-                Start a case <ArrowRight weight="bold" className="h-4 w-4" />
+              <CLinkButton href="#cases" size="lg" variant="primary">
+                Take a case <ArrowRight weight="bold" className="h-4 w-4" />
               </CLinkButton>
             ) : (
               <CLinkButton
@@ -106,6 +102,7 @@ export default async function StudentDashboard() {
       )}
 
       <CaseGroup
+        id="cases"
         eyebrow="Waiting room"
         title="Patients to see"
         empty="Nothing to take. Nice work."
@@ -123,6 +120,7 @@ export default async function StudentDashboard() {
 }
 
 interface CaseGroupProps {
+  id?: string;
   eyebrow: string;
   title: string;
   empty: string;
@@ -131,6 +129,7 @@ interface CaseGroupProps {
 }
 
 function CaseGroup({
+  id,
   eyebrow,
   title,
   empty,
@@ -139,7 +138,7 @@ function CaseGroup({
 }: CaseGroupProps) {
   if (cases.length === 0 && !empty) return null;
   return (
-    <section className="mb-12">
+    <section id={id} className="mb-12 scroll-mt-24">
       <div className="mb-5">
         <CEyebrow className="mb-1.5">{eyebrow}</CEyebrow>
         <h2 className="font-serif text-[24px] md:text-[26px] tracking-[-0.01em] text-clinical-fg font-medium">

@@ -71,6 +71,7 @@
   background: hsl(var(--c-bg));
   color: hsl(var(--c-fg));
   font-family: var(--font-sans-clinical);
+  scroll-behavior: smooth;
 }
 .clinical-bg {
   background: hsl(var(--c-bg));
