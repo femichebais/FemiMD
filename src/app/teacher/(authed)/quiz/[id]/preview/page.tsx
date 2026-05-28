@@ -14,11 +14,6 @@ import {
 } from "@/components/clinical/primitives";
 import { cn } from "@/lib/utils";
 
-const SCOPE_LABEL: Record<string, string> = {
-  pre: "Pre-test",
-  post: "Post-test",
-};
-
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ back?: string | string[] }>;
@@ -43,10 +38,6 @@ export default async function TeacherQuizPreviewPage({
   if (!detail) notFound();
 
   const { quiz, caseTitle, questions } = detail;
-  const scopeLabel =
-    quiz.scope === "pre" || quiz.scope === "post"
-      ? SCOPE_LABEL[quiz.scope]
-      : null;
 
   return (
     <main className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14 pb-24">
@@ -74,7 +65,6 @@ export default async function TeacherQuizPreviewPage({
         {quiz.title}
       </h1>
       <div className="flex flex-wrap items-center gap-2 mb-10">
-        {scopeLabel && <CBadge tone="primary">{scopeLabel}</CBadge>}
         {caseTitle && <CBadge tone="neutral">for {caseTitle}</CBadge>}
         {quiz.topic && !caseTitle && <CBadge tone="neutral">{quiz.topic}</CBadge>}
         <span className="text-[12.5px] text-clinical-muted-fg tabular-nums ml-1">

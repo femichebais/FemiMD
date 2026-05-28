@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { getCaseAttemptForTeacher } from "@/lib/queries/teacher";
 import { StageBreakdownItem } from "@/app/student/(authed)/case/[id]/feedback/_components/stage-breakdown";
 import { CCard, CEyebrow } from "@/components/clinical/primitives";
+import { formatDateTime } from "@/lib/format-date";
 import type { Stage } from "@/db/schema";
 
 interface PageProps {
@@ -38,12 +39,7 @@ export default async function TeacherCaseAttemptPage({ params }: PageProps) {
   const scorePct =
     maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100);
   const completedAt = attempt.completedAt
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(attempt.completedAt)
+    ? formatDateTime(attempt.completedAt)
     : "in progress";
 
   const typeCounts = new Map<Stage["type"], number>();

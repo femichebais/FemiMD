@@ -27,7 +27,7 @@ export default async function NewQuizPage() {
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Standalone quizzes can be released to classrooms or used as
         building blocks for student-built quizzes by topic. Optionally
-        attach to a case as its pre or post test.
+        attach to a case to use as its quiz.
       </p>
       <CreateQuizForm cases={casesList} />
     </>

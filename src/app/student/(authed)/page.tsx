@@ -10,6 +10,10 @@ import {
   type StudentDashboardCase,
 } from "@/lib/queries/student-cases";
 import {
+  listStudentQuizzes,
+  type StudentQuizRow,
+} from "@/lib/queries/student-quizzes";
+import {
   CCard,
   CLinkButton,
   CEyebrow,
@@ -29,13 +33,28 @@ async function safeList(userId: string): Promise<StudentDashboardCase[]> {
   }
 }
 
+async function safeQuizzes(studentId: string): Promise<StudentQuizRow[]> {
+  try {
+    return await listStudentQuizzes(studentId);
+  } catch (err) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[student/dashboard:quizzes]", err);
+    }
+    return [];
+  }
+}
+
 export default async function StudentDashboard() {
   const { user } = await requireRole("student");
-  const all = await safeList(user.id);
+  const [all, quizzes] = await Promise.all([
+    safeList(user.id),
+    safeQuizzes(user.id),
+  ]);
 
   const available = all.filter((c) => c.state !== "completed");
   const completed = all.filter((c) => c.state === "completed");
   const firstAvailable = available[0];
+  const hasQuizzes = quizzes.length > 0;
 
   return (
     <main className="max-w-6xl mx-auto px-5 md:px-8 py-10 md:py-14">
@@ -75,6 +94,38 @@ export default async function StudentDashboard() {
             >
               <ChartLineUp weight="bold" className="h-4 w-4" />
               Your progress
+            </CLinkButton>
+          </div>
+        </div>
+        <div
+          aria-hidden
+          className="hidden md:block absolute -right-20 -top-20 h-72 w-72 rounded-full bg-clinical-primary-glow/15 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="hidden md:block absolute -bottom-24 right-24 h-56 w-56 rounded-full bg-clinical-primary/10 blur-3xl"
+        />
+      </section>
+
+      {/* Quiz hero — mirrors the cases hero so students see both entries side-by-side. */}
+      <section className="rounded-clinical bg-clinical-hero border border-clinical-border px-6 md:px-10 py-10 md:py-14 mb-12 relative overflow-hidden">
+        <div className="relative max-w-2xl">
+          <CEyebrow className="mb-4">Knowledge check</CEyebrow>
+          <h1 className="font-serif text-[44px] md:text-[56px] leading-[1.02] tracking-[-0.025em] text-clinical-fg font-medium mb-5">
+            Take a quiz.
+          </h1>
+          <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-7 max-w-xl">
+            A few questions, randomly drawn. Retakes are fresh every time —
+            attempts are kept separately so you can see how you improve.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <CLinkButton
+              href="/student/quizzes"
+              size="lg"
+              variant="primary"
+            >
+              {hasQuizzes ? "Take a quiz" : "Browse quizzes"}
+              <ArrowRight weight="bold" className="h-4 w-4" />
             </CLinkButton>
           </div>
         </div>

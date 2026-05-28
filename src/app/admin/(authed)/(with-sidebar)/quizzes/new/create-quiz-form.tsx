@@ -63,13 +63,13 @@ export function CreateQuizForm({ cases }: CreateQuizFormProps) {
           ))}
         </select>
         <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
-          Optional. Attach to a case to use as its pre or post test.
+          Optional. Attach to a case to use as its quiz.
         </p>
       </div>
 
       {caseId && (
         <div>
-          <FieldLabel>Scope</FieldLabel>
+          <FieldLabel>Slot</FieldLabel>
           <div className="flex gap-6">
             {(["pre", "post"] as const).map((s) => (
               <label
@@ -84,10 +84,14 @@ export function CreateQuizForm({ cases }: CreateQuizFormProps) {
                   required
                   className="accent-accent"
                 />
-                {s === "pre" ? "Pre-test" : "Post-test"}
+                {s === "pre" ? "First" : "Second"}
               </label>
             ))}
           </div>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+            Two quizzes can be attached per case. Pick which slot this one
+            fills.
+          </p>
         </div>
       )}
 

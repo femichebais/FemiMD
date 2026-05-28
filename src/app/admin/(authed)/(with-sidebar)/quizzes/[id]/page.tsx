@@ -77,7 +77,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         {quizRow.caseTitle ? (
           <>
-            {quizRow.scope === "pre" ? "Pre-test" : "Post-test"} for{" "}
+            Quiz for{" "}
             <strong className="not-italic font-medium">
               {quizRow.caseTitle}
             </strong>

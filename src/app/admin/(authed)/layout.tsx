@@ -18,7 +18,7 @@ export default async function AdminAuthedLayout({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="admin min-h-screen flex flex-col">
       <nav className="flex items-center justify-between px-6 md:px-12 py-5 border-b border-rule sticky top-0 z-10 bg-paper">
         <Link
           href="/admin"

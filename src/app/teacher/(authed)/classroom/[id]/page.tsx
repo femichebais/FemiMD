@@ -7,11 +7,13 @@ import { getClassroomDetail } from "@/lib/queries/teacher";
 import { ReleaseToggle } from "./_components/release-toggle";
 import { QuizReleaseToggle } from "./_components/quiz-release-toggle";
 import { DeleteClassroomButton } from "./_components/delete-classroom-button";
+import { RemoveStudentButton } from "./_components/remove-student-button";
 import {
   CCard,
   CBadge,
   CEyebrow,
 } from "@/components/clinical/primitives";
+import { formatShortDate } from "@/lib/format-date";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
@@ -124,6 +126,7 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                   <Th align="right">Quiz attempts</Th>
                   <Th align="right">Quiz completed</Th>
                   <Th align="right">Quiz avg</Th>
+                  <Th align="right">{""}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -150,9 +153,9 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                       {s.caseCompletedCount} / {topline.releasedCaseCount}
                     </td>
                     <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
-                      {s.caseAvgScore === null
+                      {s.caseAvgPct === null
                         ? "—"
-                        : s.caseAvgScore.toFixed(1)}
+                        : `${Math.round(s.caseAvgPct)}%`}
                     </td>
                     <td className="py-3 px-4 text-right text-[13px] tabular-nums text-clinical-fg">
                       {s.quizAttemptCount}
@@ -164,6 +167,13 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                       {s.quizAvgPct === null
                         ? "—"
                         : `${Math.round(s.quizAvgPct)}%`}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <RemoveStudentButton
+                        classroomId={id}
+                        studentId={s.id}
+                        studentName={s.name}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -197,10 +207,7 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                 </span>
                 <span className="text-[11.5px] font-mono text-clinical-muted-fg tabular-nums whitespace-nowrap">
                   {c.isReleased && c.releasedAt
-                    ? `since ${new Intl.DateTimeFormat("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      }).format(new Date(c.releasedAt))}`
+                    ? `since ${formatShortDate(c.releasedAt)}`
                     : ""}
                 </span>
                 <Link
@@ -243,9 +250,7 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                   {q.title}
                 </span>
                 <span className="text-[11.5px] font-mono text-clinical-muted-fg whitespace-nowrap">
-                  {q.caseTitle
-                    ? `${q.scope === "pre" ? "Pre" : q.scope === "post" ? "Post" : ""} · ${q.caseTitle}`
-                    : (q.topic ?? "standalone")}
+                  {q.caseTitle ?? q.topic ?? "standalone"}
                 </span>
                 <Link
                   href={`/teacher/quiz/${q.id}/preview?back=/teacher/classroom/${id}`}
@@ -291,7 +296,7 @@ function Th({
   children,
   align = "left",
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   align?: "left" | "right";
 }) {
   return (

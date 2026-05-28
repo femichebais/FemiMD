@@ -87,7 +87,7 @@ export default async function StudentQuizzesPage() {
               No quizzes released to you yet.
             </p>
             <p className="text-[14px] text-clinical-muted-fg mt-1">
-              Pre/post tests show up here as your teacher releases them.
+              Quizzes show up here as your teacher releases them.
             </p>
           </CCard>
         ) : (
@@ -96,14 +96,11 @@ export default async function StudentQuizzesPage() {
               <li key={q.id}>
                 <Link href={`/student/quizzes/${q.id}`} className="block group">
                   <CCard hoverable className="p-5 h-full flex flex-col">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {q.scope && (
-                        <CBadge tone="primary">{q.scope}-test</CBadge>
-                      )}
-                      {q.topic && !q.caseTitle && (
+                    {q.topic && !q.caseTitle && (
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <CBadge tone="neutral">{q.topic}</CBadge>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <h3 className="font-serif text-[19px] leading-tight text-clinical-fg font-medium mb-1 group-hover:text-clinical-primary transition-colors">
                       {q.title}
                     </h3>

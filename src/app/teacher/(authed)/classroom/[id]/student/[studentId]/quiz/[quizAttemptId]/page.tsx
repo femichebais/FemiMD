@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { getQuizAttemptForTeacher } from "@/lib/queries/teacher";
 import { CCard, CEyebrow } from "@/components/clinical/primitives";
 import { cn } from "@/lib/utils";
+import { dateTimeFmt as dateFmt } from "@/lib/format-date";
 
 interface PageProps {
   params: Promise<{
@@ -13,18 +14,6 @@ interface PageProps {
     quizAttemptId: string;
   }>;
 }
-
-const SCOPE_LABEL: Record<string, string> = {
-  pre: "Pre-test",
-  post: "Post-test",
-};
-
-const dateFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 
 export default async function TeacherQuizAttemptPage({ params }: PageProps) {
   const { id: classroomId, studentId, quizAttemptId } = await params;
@@ -45,11 +34,6 @@ export default async function TeacherQuizAttemptPage({ params }: PageProps) {
       ? 0
       : Math.round((attempt.score / attempt.questionCount) * 100);
 
-  const scopeLabel =
-    quiz.scope === "pre" || quiz.scope === "post"
-      ? SCOPE_LABEL[quiz.scope]
-      : null;
-
   return (
     <main className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14 pb-24">
       <div className="flex items-start justify-between gap-4 mb-8">
@@ -59,7 +43,6 @@ export default async function TeacherQuizAttemptPage({ params }: PageProps) {
             {student.name}&rsquo;s quiz
           </h1>
           <p className="text-[16px] text-clinical-muted-fg">
-            {scopeLabel ? `${scopeLabel} · ` : ""}
             {quiz.caseTitle ?? quiz.title}
           </p>
         </div>

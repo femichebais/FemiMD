@@ -8,14 +8,12 @@ import {
   X,
 } from "@phosphor-icons/react/dist/ssr";
 import type { LibrarySectionType } from "@/db/schema";
-import {
-  SECTION_TYPE_LABELS,
-  SECTION_TYPE_ORDER,
-} from "@/lib/library/section-types";
+import { SECTION_TYPE_LABELS } from "@/lib/library/section-types";
 
-// A section is either a preset (one of 8 enum types — gets a label + icon
-// from SECTION_TYPE_LABELS / ICON_BY_TYPE) or fully custom (free-form title).
-// Exactly one of `type` / `title` is set.
+// A section is either a legacy preset (one of 8 enum types — gets a label
+// from SECTION_TYPE_LABELS) or fully custom (free-form title). New sections
+// only ever come in as custom now; presets are preserved on edit so historic
+// content keeps rendering.
 export interface SectionInput {
   type: LibrarySectionType | null;
   title: string | null;
@@ -27,17 +25,6 @@ export interface SectionsEditorProps {
   defaultValue?: SectionInput[];
 }
 
-const PLACEHOLDER: Record<LibrarySectionType, string> = {
-  definition: "A condition where stomach acid flows back up into the chest.",
-  description: "A common cause of burning chest pain, especially after eating.",
-  what_happens_in_body:
-    "The valve between the stomach and esophagus isn't closing properly.",
-  symptoms: "- Burning chest pain\n- Worse after meals\n- Sour or bitter taste",
-  physical_exam: "- Usually normal",
-  management: "- Avoid trigger foods\n- Medications to reduce acid",
-  treatment: "First-line: proton-pump inhibitor.",
-  what_to_do: "- Schedule outpatient clinic follow-up",
-};
 const CUSTOM_PLACEHOLDER = "Write the card body in markdown.";
 
 function sectionLabel(s: SectionInput): string {
@@ -54,25 +41,9 @@ export function SectionsEditor({
   defaultValue = [],
 }: SectionsEditorProps) {
   const [sections, setSections] = useState<SectionInput[]>(defaultValue);
-  // "menu" = showing the preset list + "custom" option.
-  // "custom" = showing the title input for a new custom section.
-  const [addState, setAddState] = useState<"closed" | "menu" | "custom">(
-    "closed"
-  );
+  // "custom" = title input visible for adding a new section.
+  const [addState, setAddState] = useState<"closed" | "custom">("closed");
   const [customTitle, setCustomTitle] = useState("");
-
-  const usedTypes = new Set(
-    sections.map((s) => s.type).filter((t): t is LibrarySectionType => !!t)
-  );
-  const available = SECTION_TYPE_ORDER.filter((t) => !usedTypes.has(t));
-
-  function addPreset(type: LibrarySectionType) {
-    setSections((prev) => [
-      ...prev,
-      { type, title: null, bodyMarkdown: "" },
-    ]);
-    setAddState("closed");
-  }
 
   function addCustom() {
     const title = customTitle.trim();
@@ -175,9 +146,7 @@ export function SectionsEditor({
               value={section.bodyMarkdown}
               onChange={(e) => updateBody(i, e.target.value)}
               rows={4}
-              placeholder={
-                section.type ? PLACEHOLDER[section.type] : CUSTOM_PLACEHOLDER
-              }
+              placeholder={CUSTOM_PLACEHOLDER}
               className="w-full px-4 py-3 font-mono text-[13px] leading-[1.6] text-ink bg-surface border-0 focus:outline-none resize-y"
             />
           </li>
@@ -185,43 +154,7 @@ export function SectionsEditor({
       </ul>
 
       <div className="relative">
-        {addState === "menu" ? (
-          <div className="border border-rule-strong bg-surface rounded-[2px] p-3 flex flex-col gap-1">
-            {available.length === 0 ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade px-2 py-1">
-                All preset sections added.
-              </p>
-            ) : (
-              available.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => addPreset(type)}
-                  className="text-left px-3 py-2 text-[14px] hover:bg-paper-2 rounded-[2px]"
-                >
-                  {SECTION_TYPE_LABELS[type]}
-                </button>
-              ))
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setAddState("custom");
-                setCustomTitle("");
-              }}
-              className="text-left px-3 py-2 text-[14px] hover:bg-paper-2 rounded-[2px] border-t border-rule mt-1 pt-3 text-accent"
-            >
-              + Custom title…
-            </button>
-            <button
-              type="button"
-              onClick={() => setAddState("closed")}
-              className="mt-1 text-left px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : addState === "custom" ? (
+        {addState === "custom" ? (
           <div className="border border-rule-strong bg-surface rounded-[2px] p-3 flex items-center gap-2">
             <input
               type="text"
@@ -258,7 +191,10 @@ export function SectionsEditor({
         ) : (
           <button
             type="button"
-            onClick={() => setAddState("menu")}
+            onClick={() => {
+              setAddState("custom");
+              setCustomTitle("");
+            }}
             className="inline-flex items-center gap-2 px-3 py-2 border border-rule-strong rounded-[2px] font-mono text-[10px] uppercase tracking-[0.18em] text-ink hover:bg-paper-2"
           >
             <Plus className="h-3.5 w-3.5" />

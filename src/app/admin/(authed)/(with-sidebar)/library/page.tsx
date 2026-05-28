@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button, StageLabel } from "@/components/ui";
 import { listAllLibraryPages, type AdminLibraryRow } from "@/lib/queries/library";
+import { DeleteLibraryButton } from "./[slug]/delete-library-button";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle",
@@ -47,7 +48,7 @@ export default async function AdminLibraryPage() {
           {rows.map((page) => (
             <li
               key={page.id}
-              className="grid grid-cols-[1fr_160px_160px] items-baseline gap-6 py-5 border-b border-rule"
+              className="grid grid-cols-[1fr_140px_140px_70px_70px] items-baseline gap-6 py-5 border-b border-rule"
             >
               <Link
                 href={`/admin/library/${page.slug}`}
@@ -60,8 +61,17 @@ export default async function AdminLibraryPage() {
                   ? "no levels"
                   : page.levels.map((l) => LEVEL_LABEL[l] ?? l).join(" · ")}
               </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade justify-self-end">
+              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade truncate">
                 /{page.slug}
+              </span>
+              <Link
+                href={`/admin/library/${page.slug}`}
+                className="justify-self-end font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent border border-rule-strong px-3 py-2 rounded-[2px] transition-colors"
+              >
+                Edit
+              </Link>
+              <span className="justify-self-end">
+                <DeleteLibraryButton id={page.id} title={page.title} />
               </span>
             </li>
           ))}

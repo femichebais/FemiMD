@@ -214,3 +214,74 @@ export async function deleteClassroom(
   revalidatePath(`/teacher/classroom/${classroomId}`);
   redirect("/teacher");
 }
+
+// =============================================================================
+// removeStudent — teacher soft-deletes a single student from their classroom
+// =============================================================================
+// Soft-deletes the student row (deletedAt set) and tombstones their auth
+// email. Mirrors the admin's deleteStudent path but ownership-checks the
+// classroom against the requesting teacher.
+
+export interface RemoveStudentState {
+  error?: string;
+}
+
+export async function removeStudent(
+  _prevState: RemoveStudentState,
+  formData: FormData
+): Promise<RemoveStudentState> {
+  const { user } = await requireRole("teacher");
+  const studentId = String(formData.get("studentId") ?? "");
+  const classroomId = String(formData.get("classroomId") ?? "");
+  if (!studentId || !classroomId) {
+    return { error: "Missing student or classroom id." };
+  }
+
+  // Ownership: the student must be enrolled in a classroom owned by this
+  // teacher, and not already soft-deleted. The join verifies both in a single
+  // query.
+  const [row] = await db
+    .select({ id: students.id })
+    .from(students)
+    .innerJoin(classrooms, eq(classrooms.id, students.classroomId))
+    .where(
+      and(
+        eq(students.id, studentId),
+        eq(students.classroomId, classroomId),
+        eq(classrooms.teacherId, user.id),
+        isNull(students.deletedAt),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .limit(1);
+  if (!row) return { error: "Student not found in your classroom." };
+
+  try {
+    await db
+      .update(students)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(students.id, studentId), isNull(students.deletedAt)));
+  } catch (err) {
+    console.error("[teacher/removeStudent]", err);
+    return { error: "Could not remove student." };
+  }
+
+  // Tombstone auth email so the address can be reused on a fresh invite.
+  // Non-fatal — DB soft-delete already succeeded.
+  const admin = createSupabaseAdminClient();
+  const tombstone = `deleted-${Date.now()}-${studentId.slice(0, 8)}@deleted.invalid`;
+  const { error: renameErr } = await admin.auth.admin.updateUserById(
+    studentId,
+    { email: tombstone, email_confirm: true }
+  );
+  if (renameErr) {
+    console.warn(
+      "[teacher/removeStudent] tombstone email failed:",
+      renameErr.message
+    );
+  }
+
+  revalidatePath(`/teacher/classroom/${classroomId}`);
+  revalidatePath("/teacher");
+  return {};
+}

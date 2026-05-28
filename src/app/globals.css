@@ -66,7 +66,7 @@
 }
 
 /* Applied at the (authed) layout level for student/teacher to switch the
- * canvas to the clinical palette. Admin keeps the editorial paper canvas. */
+ * canvas to the clinical palette. */
 .clinical {
   background: hsl(var(--c-bg));
   color: hsl(var(--c-fg));
@@ -75,6 +75,29 @@
 }
 .clinical-bg {
   background: hsl(var(--c-bg));
+}
+
+/* Admin canvas — remaps the editorial paper tokens to the clinical palette
+ * so the admin UI matches the student/teacher app without rewriting every
+ * page's `bg-paper` / `text-ink` / `text-accent` reference. Only colors and
+ * the body font are remapped — shape (sharp corners, mono labels) is left
+ * intact since the existing admin layout reads cleaner that way. */
+.admin {
+  --paper: hsl(var(--c-bg));
+  --paper-2: hsl(var(--c-muted));
+  --paper-3: hsl(214 32% 91%);
+  --surface: hsl(var(--c-card));
+  --ink: hsl(var(--c-fg));
+  --ink-mute: hsl(var(--c-muted-fg));
+  --ink-fade: hsl(215 16% 60%);
+  --accent: hsl(var(--c-primary));
+  --accent-soft: hsl(var(--c-primary-soft));
+  --rule: hsl(var(--c-border) / 0.7);
+  --rule-strong: hsl(var(--c-border));
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans-clinical);
 }
 
 html,

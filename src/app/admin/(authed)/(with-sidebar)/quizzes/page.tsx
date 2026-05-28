@@ -32,16 +32,16 @@ export default async function AdminQuizzesPage() {
         </Link>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
-        Case-attached pre/post tests are auto-provisioned the first time
-        you open their question bank from the case editor. Standalone
-        quizzes (admin-authored, optionally tied to a topic) appear here
-        too. Both can be released to classrooms by teachers.
+        Case-attached quizzes are auto-provisioned the first time you open
+        their question bank from the case editor. Standalone quizzes
+        (admin-authored, optionally tied to a topic) appear here too. Both
+        can be released to classrooms by teachers.
       </p>
 
       {rows.length === 0 ? (
         <p className="font-serif italic text-[16px] text-ink-mute">
           No quizzes yet — create one above, or open any case&apos;s edit
-          page to provision its pre/post tests.
+          page to provision its quiz.
         </p>
       ) : (
         <ul>
@@ -62,7 +62,7 @@ export default async function AdminQuizzesPage() {
                 )}
               </Link>
               <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-mute">
-                {q.topic ?? (q.scope ? `${q.scope}-test` : "no topic")}
+                {q.topic ?? (q.caseId ? "quiz" : "no topic")}
               </span>
               <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-fade">
                 {q.questionCount} question{q.questionCount === 1 ? "" : "s"}

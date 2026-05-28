@@ -26,10 +26,10 @@ export function DeleteLibraryButton({
       <button
         type="submit"
         disabled={isPending}
-        className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade hover:text-[var(--warning)] disabled:opacity-50 transition-colors"
+        className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-[var(--warning)] hover:border-[var(--warning)] border border-rule-strong px-3 py-2 rounded-[2px] disabled:opacity-50 transition-colors"
         title={state.error}
       >
-        {isPending ? "Deleting…" : "Delete page"}
+        {isPending ? "Deleting…" : "Delete"}
       </button>
     </form>
   );

@@ -9,7 +9,6 @@ import {
   students,
   stages,
   choices,
-  quizAttempts,
   studentCaseGrants,
   type Case,
   type Stage,
@@ -153,6 +152,8 @@ export type StudentCaseState = "not_started" | "in_progress" | "completed";
 export interface StudentDashboardCase extends StudentCaseRow {
   state: StudentCaseState;
   bestScore: number | null;
+  // Sum of top-N choice scores per stage. Used to render bestScore as a %.
+  caseMaxPossible: number;
   attemptCount: number;
   latestAttemptAt: Date | null;
 }
@@ -184,31 +185,45 @@ export async function listStudentDashboard(
     )
     .groupBy(caseAttempts.caseId);
 
-  // Which released cases has the student already taken the post-quiz for?
-  // Used to mark completion state below.
-  //
-  // We use drizzle's inArray() instead of a raw `case_id = ANY(${caseIds})`
-  // template: postgres.js (the driver) serializes a JS array as a comma
-  // string for raw SQL params, which Postgres rejects with "malformed array
-  // literal". inArray() expands to `case_id IN ($1, $2, ...)` with each id
-  // as its own parameter.
-  const postAttemptRows =
-    caseIds.length === 0
-      ? []
-      : await db
-          .selectDistinct({ caseId: quizAttempts.caseId })
-          .from(quizAttempts)
-          .where(
-            and(
-              eq(quizAttempts.studentId, studentId),
-              eq(quizAttempts.scope, "post"),
-              isNotNull(quizAttempts.caseId),
-              inArray(quizAttempts.caseId, caseIds)
-            )
-          );
-  const postCaseIds = new Set(
-    postAttemptRows.map((r) => r.caseId).filter((id): id is string => !!id)
-  );
+  // Per-case max-possible = sum over stages of (top-maxPicks choice scores).
+  // Cheaper to compute for every released case here so the card can render
+  // bestScore as a percentage without an extra round-trip.
+  const stageChoiceRows = await db
+    .select({
+      caseId: stages.caseId,
+      stageId: stages.id,
+      maxPicks: stages.maxPicks,
+      score: choices.score,
+    })
+    .from(stages)
+    .innerJoin(choices, eq(choices.stageId, stages.id))
+    .where(inArray(stages.caseId, caseIds));
+
+  const stageBuckets = new Map<
+    string,
+    { caseId: string; maxPicks: number; scores: number[] }
+  >();
+  for (const r of stageChoiceRows) {
+    const b = stageBuckets.get(r.stageId);
+    if (b) {
+      b.scores.push(r.score);
+    } else {
+      stageBuckets.set(r.stageId, {
+        caseId: r.caseId,
+        maxPicks: r.maxPicks,
+        scores: [r.score],
+      });
+    }
+  }
+  const caseMaxByCaseId = new Map<string, number>();
+  for (const b of stageBuckets.values()) {
+    const top = [...b.scores].sort((x, y) => y - x).slice(0, b.maxPicks);
+    const stageMax = top.reduce((s, n) => s + n, 0);
+    caseMaxByCaseId.set(
+      b.caseId,
+      (caseMaxByCaseId.get(b.caseId) ?? 0) + stageMax
+    );
+  }
 
   const statsByCase = new Map(stats.map((s) => [s.caseId, s]));
 
@@ -216,10 +231,12 @@ export async function listStudentDashboard(
     const s = statsByCase.get(c.id);
     const hasCompleted = s?.anyCompleted ?? false;
     const hasOpen = s?.anyOpen ?? false;
-    const hasPost = postCaseIds.has(c.id);
+    // A case is "completed" the moment a case_attempts row has completed_at
+    // set. We no longer gate completion on a post-test quiz attempt — quizzes
+    // are independent of case completion now that pre/post is gone.
     let state: StudentCaseState = "not_started";
-    if (hasCompleted && hasPost) state = "completed";
-    else if (hasOpen || hasCompleted) state = "in_progress";
+    if (hasCompleted) state = "completed";
+    else if (hasOpen) state = "in_progress";
 
     return {
       ...c,
@@ -228,6 +245,7 @@ export async function listStudentDashboard(
         s?.bestScore !== null && s?.bestScore !== undefined
           ? Number(s.bestScore)
           : null,
+      caseMaxPossible: caseMaxByCaseId.get(c.id) ?? 0,
       attemptCount: s?.attemptCount ?? 0,
       latestAttemptAt: s?.latestAttemptAt ?? null,
     };

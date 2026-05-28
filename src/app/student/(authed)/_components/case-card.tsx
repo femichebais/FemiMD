@@ -29,14 +29,18 @@ export function CaseCard({ caseRow: c, primaryCta }: CaseCardProps) {
       : state === "in_progress"
         ? "In progress"
         : "New";
+  const bestPct =
+    c.bestScore !== null && c.caseMaxPossible > 0
+      ? Math.round((c.bestScore / c.caseMaxPossible) * 100)
+      : null;
 
   return (
     <CCard hoverable className="p-5 sm:p-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-3 mb-2">
         <CBadge tone={tone}>{stateLabel}</CBadge>
-        {c.bestScore !== null && (
+        {bestPct !== null && (
           <span className="text-[11px] font-mono text-clinical-muted-fg tabular-nums">
-            best {c.bestScore} pts
+            best {bestPct}%
           </span>
         )}
       </div>

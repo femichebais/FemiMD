@@ -17,7 +17,7 @@ export default async function AdminLoginPage({
   const next = typeof params.next === "string" ? params.next : undefined;
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="admin min-h-screen flex flex-col">
       <header className="px-6 md:px-12 py-5 border-b border-rule">
         <Link
           href="/"

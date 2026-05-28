@@ -50,15 +50,12 @@ export default async function StudentQuizPage({ params }: PageProps) {
     return (
       <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
         <div className="max-w-2xl mx-auto">
-          <CEyebrow className="mb-3">
-            {scope === "pre" ? "Pre-test" : "Post-test"} · {caseRow.title}
-          </CEyebrow>
+          <CEyebrow className="mb-3">Quiz · {caseRow.title}</CEyebrow>
           <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
             Nothing here yet.
           </h1>
           <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-10">
-            Your teacher or admin hasn&apos;t added{" "}
-            {scope === "pre" ? "pre-test" : "post-test"} questions for this
+            Your teacher or admin hasn&apos;t added quiz questions for this
             case yet.
           </p>
           <Link
@@ -79,7 +76,7 @@ export default async function StudentQuizPage({ params }: PageProps) {
       caseTitle={caseRow.title}
       scope={scope}
       quizId={quizId}
-      quizTitle={`${caseRow.title} · ${scope === "pre" ? "Pre-test" : "Post-test"}`}
+      quizTitle={`${caseRow.title} · Quiz`}
       questions={questions}
     />
   );

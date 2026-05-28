@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import {
   caseAttempts,
   cases,
+  choices,
   quizAttempts,
   stages,
   stageAttempts,
@@ -24,6 +25,9 @@ export interface ProgressAttempt {
   startedAt: Date;
   completedAt: Date | null;
   totalScore: number | null;
+  // Sum of top-N choice scores per stage. Used to render attempt scores as
+  // percentages instead of raw points.
+  caseMaxPossible: number;
   stageBreakdown: StageBreakdownEntry[];
 }
 
@@ -83,8 +87,52 @@ export async function listStudentCaseAttempts(
     breakdownByAttempt.set(r.attemptId, list);
   }
 
+  // Max-possible per case = sum over stages of (top-maxPicks choice scores).
+  // Mirrors the teacher analytics query so % comes out identical on both sides.
+  const attemptedCaseIds = [...new Set(attempts.map((a) => a.caseId))];
+  const stageChoiceRows =
+    attemptedCaseIds.length === 0
+      ? []
+      : await db
+          .select({
+            caseId: stages.caseId,
+            stageId: stages.id,
+            maxPicks: stages.maxPicks,
+            score: choices.score,
+          })
+          .from(stages)
+          .innerJoin(choices, eq(choices.stageId, stages.id))
+          .where(inArray(stages.caseId, attemptedCaseIds));
+
+  const stageBuckets = new Map<
+    string,
+    { caseId: string; maxPicks: number; scores: number[] }
+  >();
+  for (const r of stageChoiceRows) {
+    const b = stageBuckets.get(r.stageId);
+    if (b) {
+      b.scores.push(r.score);
+    } else {
+      stageBuckets.set(r.stageId, {
+        caseId: r.caseId,
+        maxPicks: r.maxPicks,
+        scores: [r.score],
+      });
+    }
+  }
+  const caseMaxByCaseId = new Map<string, number>();
+  for (const b of stageBuckets.values()) {
+    const top = [...b.scores].sort((x, y) => y - x).slice(0, b.maxPicks);
+    const stageMax = top.reduce((s, n) => s + n, 0);
+    caseMaxByCaseId.set(
+      b.caseId,
+      (caseMaxByCaseId.get(b.caseId) ?? 0) + stageMax
+    );
+  }
+
   return attempts.map((a) => ({
     ...a,
+    caseMaxPossible: caseMaxByCaseId.get(a.caseId) ?? 0,
     stageBreakdown: breakdownByAttempt.get(a.id) ?? [],
   }));
 }

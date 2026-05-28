@@ -129,7 +129,7 @@ export function CaseEditorSidebar({
             href={`/admin/cases/${meta.caseId}/quiz`}
             className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-accent transition-colors"
           >
-            Manage pre + post test →
+            Manage quiz →
           </Link>
         </Section>
       )}

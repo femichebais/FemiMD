@@ -17,6 +17,7 @@ import {
   CEyebrow,
   CLinkButton,
 } from "@/components/clinical/primitives";
+import { formatDateTime } from "@/lib/format-date";
 import type { Stage } from "@/db/schema";
 
 interface FeedbackPageProps {
@@ -89,12 +90,7 @@ export default async function FeedbackPage({
   const scorePct =
     maxPossible === 0 ? 0 : Math.round((earned / maxPossible) * 100);
   const completedAt = attempt.completedAt
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(attempt.completedAt)
+    ? formatDateTime(attempt.completedAt)
     : "in progress";
 
   return (
@@ -199,7 +195,7 @@ export default async function FeedbackPage({
                 className="h-7 w-7 text-clinical-primary mb-3"
               />
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
-                Post-test
+                Quiz
               </p>
               <p className="font-serif text-[20px] leading-tight text-clinical-fg font-medium mb-1">
                 Test what stuck.
@@ -208,7 +204,7 @@ export default async function FeedbackPage({
                 A short quiz to confirm you&rsquo;ve closed the loop.
               </p>
               <span className="inline-flex items-center text-[13px] font-medium text-clinical-primary">
-                Take post-test
+                Take the quiz
                 <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
               </span>
             </CCard>

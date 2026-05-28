@@ -17,11 +17,6 @@ import {
   type QuizScope,
 } from "../actions";
 
-const SCOPE_LABEL: Record<QuizScope, string> = {
-  pre: "Pre-test",
-  post: "Post-test",
-};
-
 interface GradedState {
   score: number;
   total: number;
@@ -96,14 +91,10 @@ export function QuizPlayer({
     <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
       <div className="max-w-3xl mx-auto">
         <CEyebrow className="mb-3">
-          {scope ? `${SCOPE_LABEL[scope]} · ${caseTitle ?? quizTitle}` : quizTitle}
+          {caseTitle ? `Quiz · ${caseTitle}` : quizTitle}
         </CEyebrow>
         <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
-          {graded
-            ? "Here's how you did."
-            : scope === "pre"
-              ? "Before you start."
-              : "Test what stuck."}
+          {graded ? "Here's how you did." : "Take the quiz."}
         </h1>
         <p className="text-[17px] text-clinical-muted-fg mb-10">
           {graded

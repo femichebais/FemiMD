@@ -7,6 +7,7 @@ import {
   getStudentDetailForTeacher,
   type StudentDetail,
 } from "@/lib/queries/teacher";
+import { formatDateTime, formatShortDate } from "@/lib/format-date";
 
 interface QuizAggregate {
   key: string;
@@ -189,12 +190,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   {a.caseTitle}
                 </h2>
                 <span className="text-[11px] font-mono text-clinical-muted-fg">
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }).format(new Date(a.startedAt))}
+                  {formatDateTime(a.startedAt)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-clinical-muted-fg mb-3">
@@ -289,10 +285,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   {g.latestPct}%
                 </span>
                 <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  }).format(g.latestAt)}
+                  {formatShortDate(g.latestAt)}
                 </span>
               </li>
             ))}
@@ -307,12 +300,9 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </p>
       ) : (
         <div className="mb-14">
-          <div className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+          <div className="grid grid-cols-[1fr_90px_80px_140px_80px] items-baseline gap-6 pb-3 border-b border-clinical-border">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Quiz
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
-              Scope
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Score
@@ -334,13 +324,10 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
               return (
                 <li
                   key={q.id}
-                  className="grid grid-cols-[1fr_80px_90px_80px_140px_80px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
+                  className="grid grid-cols-[1fr_90px_80px_140px_80px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
                 >
                   <span className="font-serif text-[16px] text-clinical-fg truncate">
                     {q.caseTitle ?? "Quiz"}
-                  </span>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-clinical-muted-fg">
-                    {q.scope}-test
                   </span>
                   <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                     {q.score} / {q.questionCount}
@@ -349,12 +336,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                     {pct}%
                   </span>
                   <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
-                    {new Intl.DateTimeFormat("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }).format(new Date(q.completedAt))}
+                    {formatDateTime(q.completedAt)}
                   </span>
                   <Link
                     href={`/teacher/classroom/${classroomId}/student/${studentId}/quiz/${q.id}`}
@@ -376,12 +358,9 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
               Quiz
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
-              Scope
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
               Attempts
@@ -403,13 +382,10 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             {aggregateQuizAttempts(quizAttempts).map((g) => (
               <li
                 key={g.key}
-                className="grid grid-cols-[1fr_80px_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
+                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
               >
                 <span className="font-serif text-[16px] text-clinical-fg truncate">
                   {g.caseTitle}
-                </span>
-                <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-clinical-muted-fg">
-                  {g.scope}-test
                 </span>
                 <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
                   {g.attemptCount}
@@ -424,10 +400,7 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                   {g.latestPct}%
                 </span>
                 <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  }).format(new Date(g.latestAt))}
+                  {formatShortDate(g.latestAt)}
                 </span>
               </li>
             ))}

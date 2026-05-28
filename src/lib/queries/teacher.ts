@@ -76,7 +76,7 @@ export interface ClassroomDetail {
     email: string;
     caseAttemptCount: number;
     caseCompletedCount: number; // distinct released cases the student completed
-    caseAvgScore: number | null; // avg of total_score across the student's completed case attempts
+    caseAvgPct: number | null; // avg of (score / max possible) percent across the student's completed case attempts
     quizAttemptCount: number;
     quizCompletedCount: number; // distinct released quizzes the student attempted
     quizAvgPct: number | null; // avg score/question_count percent across attempts
@@ -212,11 +212,89 @@ export async function getClassroomDetail(
           .select({
             studentId: caseAttempts.studentId,
             attemptCount: sql<number>`COUNT(*)::int`,
-            avgScore: sql<number | null>`AVG(${caseAttempts.totalScore}) FILTER (WHERE ${caseAttempts.completedAt} IS NOT NULL)`,
           })
           .from(caseAttempts)
           .where(inArray(caseAttempts.studentId, studentIds))
           .groupBy(caseAttempts.studentId);
+
+  // Per-attempt rows for completed case attempts — needed to compute avg %.
+  // We need the case_id to divide by per-case max possible. Cheaper than a
+  // SQL-side AVG since we already need the per-case max anyway.
+  const completedAttemptRows =
+    studentIds.length === 0
+      ? []
+      : await db
+          .select({
+            studentId: caseAttempts.studentId,
+            caseId: caseAttempts.caseId,
+            totalScore: caseAttempts.totalScore,
+          })
+          .from(caseAttempts)
+          .where(
+            and(
+              inArray(caseAttempts.studentId, studentIds),
+              isNotNull(caseAttempts.completedAt)
+            )
+          );
+
+  // Max-possible per case for cases anyone in the classroom has attempted.
+  const attemptedCaseIds = [
+    ...new Set(completedAttemptRows.map((r) => r.caseId)),
+  ];
+  const caseMaxByCaseId = new Map<string, number>();
+  if (attemptedCaseIds.length > 0) {
+    const stageChoiceRows = await db
+      .select({
+        caseId: stages.caseId,
+        stageId: stages.id,
+        maxPicks: stages.maxPicks,
+        score: choices.score,
+      })
+      .from(stages)
+      .innerJoin(choices, eq(choices.stageId, stages.id))
+      .where(inArray(stages.caseId, attemptedCaseIds));
+
+    const stageBuckets = new Map<
+      string,
+      { caseId: string; maxPicks: number; scores: number[] }
+    >();
+    for (const r of stageChoiceRows) {
+      const b = stageBuckets.get(r.stageId);
+      if (b) {
+        b.scores.push(r.score);
+      } else {
+        stageBuckets.set(r.stageId, {
+          caseId: r.caseId,
+          maxPicks: r.maxPicks,
+          scores: [r.score],
+        });
+      }
+    }
+    for (const b of stageBuckets.values()) {
+      const top = [...b.scores].sort((x, y) => y - x).slice(0, b.maxPicks);
+      const stageMax = top.reduce((s, n) => s + n, 0);
+      caseMaxByCaseId.set(
+        b.caseId,
+        (caseMaxByCaseId.get(b.caseId) ?? 0) + stageMax
+      );
+    }
+  }
+
+  // Roll up per-student avg % from the per-attempt rows.
+  const caseAvgPctByStudent = new Map<string, number>();
+  const pctBuckets = new Map<string, number[]>();
+  for (const r of completedAttemptRows) {
+    const max = caseMaxByCaseId.get(r.caseId) ?? 0;
+    if (max === 0) continue;
+    const pct = ((r.totalScore ?? 0) / max) * 100;
+    const list = pctBuckets.get(r.studentId) ?? [];
+    list.push(pct);
+    pctBuckets.set(r.studentId, list);
+  }
+  for (const [studentId, pcts] of pctBuckets) {
+    const sum = pcts.reduce((s, n) => s + n, 0);
+    caseAvgPctByStudent.set(studentId, sum / pcts.length);
+  }
 
   // Per-student distinct released cases completed — filtered to the set
   // currently released so the X / Y denominator the UI shows is meaningful.
@@ -292,10 +370,7 @@ export async function getClassroomDetail(
       email: r.email,
       caseAttemptCount: c?.attemptCount ?? 0,
       caseCompletedCount: caseCompletedByStudent.get(r.id) ?? 0,
-      caseAvgScore:
-        c?.avgScore === null || c?.avgScore === undefined
-          ? null
-          : Number(c.avgScore),
+      caseAvgPct: caseAvgPctByStudent.get(r.id) ?? null,
       quizAttemptCount: q?.attemptCount ?? 0,
       quizCompletedCount: quizCompletedByStudent.get(r.id) ?? 0,
       quizAvgPct:
