@@ -28,7 +28,10 @@ export const authUsers = authSchema.table("users", {
 // Enums
 // =============================================================================
 
-export const roleEnum = pgEnum("role", ["admin", "teacher", "student"]);
+// 'pending' = self-signup awaiting admin approval. They have a profile + a
+// pending_signups row but no teachers/students row yet, so they can't reach
+// any case content. Middleware shunts them to /pending until approved.
+export const roleEnum = pgEnum("role", ["admin", "teacher", "student", "pending"]);
 export const levelEnum = pgEnum("level", ["middle", "high", "undergrad"]);
 export const stageTypeEnum = pgEnum("stage_type", [
   "history",
@@ -131,9 +134,13 @@ export const students = pgTable(
     id: uuid("id")
       .primaryKey()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    classroomId: uuid("classroom_id")
-      .notNull()
-      .references(() => classrooms.id, { onDelete: "restrict" }),
+    // Nullable so admins can grant direct case access to a student without a
+    // classroom (used in the self-signup approval flow when no classroom is
+    // assigned). Teacher-roster + release queries already filter on classroom
+    // membership, so unclassroomed students simply don't appear there.
+    classroomId: uuid("classroom_id").references(() => classrooms.id, {
+      onDelete: "restrict",
+    }),
     email: text("email").notNull(),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -143,6 +150,26 @@ export const students = pgTable(
   },
   (table) => ({
     classroomIdx: index("students_classroom_idx").on(table.classroomId),
+  })
+);
+
+// Self-signup queue. A row here means: someone created an account on /signup,
+// confirmed their email, and is waiting for admin approval. On approval the
+// row is deleted and a students (or future teachers) row replaces it.
+export const pendingSignups = pgTable(
+  "pending_signups",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    requestedIdx: index("pending_signups_requested_idx").on(table.requestedAt),
   })
 );
 
@@ -614,6 +641,8 @@ export type Classroom = typeof classrooms.$inferSelect;
 export type NewClassroom = typeof classrooms.$inferInsert;
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
+export type PendingSignup = typeof pendingSignups.$inferSelect;
+export type NewPendingSignup = typeof pendingSignups.$inferInsert;
 export type Case = typeof cases.$inferSelect;
 export type NewCase = typeof cases.$inferInsert;
 export type CaseLevelConfig = typeof caseLevelConfig.$inferSelect;

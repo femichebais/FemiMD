@@ -8,6 +8,8 @@ const DASHBOARD_FOR: Record<Role, string> = {
   admin: "/admin",
   teacher: "/teacher",
   student: "/student",
+  // Pending users get their own holding screen until admin promotes them.
+  pending: "/pending",
 };
 
 export interface SignInFormState {

@@ -31,12 +31,18 @@ export default function Home() {
             </span>
             Femi
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1">
             <Link
               href="/login"
               className="text-[14px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors px-3 py-1.5 rounded-clinical hover:bg-clinical-muted"
             >
               Log in
+            </Link>
+            <Link
+              href="/signup"
+              className="text-[14px] font-medium text-clinical-primary hover:text-clinical-fg transition-colors px-3 py-1.5 rounded-clinical hover:bg-clinical-muted"
+            >
+              Sign up
             </Link>
           </nav>
         </div>
@@ -61,10 +67,16 @@ export default function Home() {
                 exam, and make the call.
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <CLinkButton href="/login" size="lg" variant="primary">
-                  Log in to start
+                <CLinkButton href="/signup" size="lg" variant="primary">
+                  Create an account
                   <ArrowRight weight="bold" className="h-4 w-4" />
                 </CLinkButton>
+                <Link
+                  href="/login"
+                  className="text-[14px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors px-3 py-2"
+                >
+                  Already have one? Log in
+                </Link>
                 <a
                   href="#how-it-works"
                   className="text-[14px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors px-3 py-2"
@@ -177,14 +189,20 @@ export default function Home() {
               Ready when the patient walks in.
             </h2>
             <p className="text-[16px] leading-[1.6] text-clinical-muted-fg mb-7 max-w-xl mx-auto">
-              Sign in with the account your teacher set up, or use your
-              classroom invite link to register.
+              Create an account in seconds — we&apos;ll approve access and
+              email you when you&apos;re in.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <CLinkButton href="/login" size="lg" variant="primary">
-                Log in
+              <CLinkButton href="/signup" size="lg" variant="primary">
+                Sign up
                 <ArrowRight weight="bold" className="h-4 w-4" />
               </CLinkButton>
+              <Link
+                href="/login"
+                className="text-[14px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors px-3 py-2"
+              >
+                Already have an account?
+              </Link>
             </div>
           </div>
         </section>

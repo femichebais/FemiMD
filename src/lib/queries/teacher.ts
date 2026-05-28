@@ -486,7 +486,10 @@ export async function getStudentDetailForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
       classroomLevel: classrooms.level,
     })
@@ -692,7 +695,10 @@ export async function getCaseAttemptForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
     })
     .from(students)
@@ -857,7 +863,10 @@ export async function getQuizAttemptForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
     })
     .from(students)

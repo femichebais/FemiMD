@@ -90,6 +90,37 @@ export function teacherInviteEmail(args: {
   };
 }
 
+export function signupConfirmationEmail(args: {
+  name: string;
+  confirmUrl: string;
+}) {
+  return {
+    subject: "Confirm your Femi MD email",
+    html: shell({
+      title: `Confirm your email, ${args.name}.`,
+      intro:
+        "Click below to confirm your email and finish creating your Femi MD account. After confirmation, an admin will review and approve your access. The link expires in 24 hours.",
+      cta: { label: "Confirm my email", url: args.confirmUrl },
+      footer:
+        "Didn't request this? You can safely ignore this email — your account stays inactive without the click.",
+    }),
+  };
+}
+
+export function signupApprovedEmail(args: { name: string; loginUrl: string }) {
+  return {
+    subject: "You're approved on Femi MD",
+    html: shell({
+      title: `You're in, ${args.name}.`,
+      intro:
+        "An admin just approved your Femi MD account. Sign in to start working through cases.",
+      cta: { label: "Sign in", url: args.loginUrl },
+      footer:
+        "If you no longer want access, reply to this email and we'll remove your account.",
+    }),
+  };
+}
+
 export function passwordResetEmail(args: { recoveryUrl: string }) {
   return {
     subject: "Reset your Femi password",

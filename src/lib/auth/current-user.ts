@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type Role = "admin" | "teacher" | "student";
+export type Role = "admin" | "teacher" | "student" | "pending";
 
 export interface CurrentUser {
   user: User;
@@ -14,7 +14,10 @@ function readRoleFromJwt(user: User): Role | null {
   // user-mutable, so we treat it as authoritative. The JWT is signed, so
   // tampering would fail signature verification at the Supabase edge.
   const role = (user.app_metadata as Record<string, unknown> | undefined)?.role;
-  return role === "admin" || role === "teacher" || role === "student"
+  return role === "admin" ||
+    role === "teacher" ||
+    role === "student" ||
+    role === "pending"
     ? role
     : null;
 }
