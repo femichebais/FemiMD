@@ -11,7 +11,17 @@ export function createSupabaseBrowserClient(): SupabaseClient {
   if (!client) {
     client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        // Sessions are established explicitly — via signInWithPassword on
+        // login, or a manual setSession() from the URL hash in the
+        // reset-password / accept-invitation flows — and persisted through
+        // SSR cookies. Auto-detection races those flows: AuthProvider (mounted
+        // in the root layout) instantiates this same singleton and would
+        // consume + strip the recovery hash before the reset form can read it,
+        // stranding the user on "This page needs a reset link."
+        auth: { detectSessionInUrl: false },
+      }
     );
   }
   return client;

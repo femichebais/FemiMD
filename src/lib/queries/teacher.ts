@@ -204,7 +204,9 @@ export async function getClassroomDetail(
     .filter((q) => q.isReleased)
     .map((q) => q.id);
 
-  // Per-student case aggregates — unfiltered counts. Empty if no students.
+  // Per-student case aggregates — completed attempts only, so the roster's
+  // "Case attempts" total matches the per-student drill-down, which hides
+  // in-progress/abandoned runs. Empty if no students.
   const caseAggRows =
     studentIds.length === 0
       ? []
@@ -214,7 +216,12 @@ export async function getClassroomDetail(
             attemptCount: sql<number>`COUNT(*)::int`,
           })
           .from(caseAttempts)
-          .where(inArray(caseAttempts.studentId, studentIds))
+          .where(
+            and(
+              inArray(caseAttempts.studentId, studentIds),
+              isNotNull(caseAttempts.completedAt)
+            )
+          )
           .groupBy(caseAttempts.studentId);
 
   // Per-attempt rows for completed case attempts — needed to compute avg %.

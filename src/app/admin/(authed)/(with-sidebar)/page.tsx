@@ -24,9 +24,9 @@ export default async function AdminOverviewPage() {
         {
           label: "Classrooms",
           value: stats.classroomCount,
-          href: "/admin/teachers",
+          href: "/admin/classrooms",
         },
-        { label: "Students", value: stats.studentCount, href: "/admin/teachers" },
+        { label: "Students", value: stats.studentCount, href: "/admin/students" },
         { label: "Cases", value: stats.caseCount, href: "/admin/cases" },
       ]
     : [];

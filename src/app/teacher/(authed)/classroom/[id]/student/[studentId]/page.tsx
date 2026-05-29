@@ -199,7 +199,10 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
                     <span>
                       Score{" "}
                       <strong className="text-clinical-primary text-[13px]">
-                        {a.totalScore}
+                        {a.caseMaxPossible > 0
+                          ? Math.round((a.totalScore / a.caseMaxPossible) * 100)
+                          : 0}
+                        %
                       </strong>
                     </span>
                   )}

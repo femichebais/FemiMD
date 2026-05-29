@@ -18,7 +18,6 @@ import {
   CLinkButton,
   CEyebrow,
 } from "@/components/clinical/primitives";
-import { CaseCard } from "./_components/case-card";
 
 export const metadata: Metadata = { title: "Your cases" };
 
@@ -51,9 +50,6 @@ export default async function StudentDashboard() {
     safeQuizzes(user.id),
   ]);
 
-  const available = all.filter((c) => c.state !== "completed");
-  const completed = all.filter((c) => c.state === "completed");
-  const firstAvailable = available[0];
   const hasQuizzes = quizzes.length > 0;
 
   return (
@@ -73,20 +69,9 @@ export default async function StudentDashboard() {
             the call.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            {firstAvailable ? (
-              <CLinkButton href="/student/cases" size="lg" variant="primary">
-                Take a case <ArrowRight weight="bold" className="h-4 w-4" />
-              </CLinkButton>
-            ) : (
-              <CLinkButton
-                href="/student/library"
-                size="lg"
-                variant="primary"
-              >
-                Browse the library
-                <ArrowRight weight="bold" className="h-4 w-4" />
-              </CLinkButton>
-            )}
+            <CLinkButton href="/student/cases" size="lg" variant="primary">
+              Take a case <ArrowRight weight="bold" className="h-4 w-4" />
+            </CLinkButton>
             <CLinkButton
               href="/student/progress"
               size="lg"
@@ -155,23 +140,6 @@ export default async function StudentDashboard() {
         </CCard>
       )}
 
-      {completed.length > 0 && (
-        <section className="mb-12">
-          <div className="mb-5">
-            <CEyebrow className="mb-1.5">Records</CEyebrow>
-            <h2 className="font-serif text-[24px] md:text-[26px] tracking-[-0.01em] text-clinical-fg font-medium">
-              Cases you&rsquo;ve closed
-            </h2>
-          </div>
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {completed.map((c) => (
-              <li key={c.id}>
-                <CaseCard caseRow={c} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </main>
   );
 }

@@ -6,7 +6,6 @@ import {
   quizChoices,
   quizReleases,
   studentQuizGrants,
-  caseReleases,
   studentCaseGrants,
   classrooms,
   students,
@@ -16,13 +15,14 @@ import {
   type QuizChoice,
 } from "@/db/schema";
 
-// Accessible quiz IDs — union of three paths:
+// Accessible quiz IDs — a quiz is visible only when it has been explicitly
+// released or granted. Paths:
 //   1. Direct quiz release to student's classroom (quiz_releases)
 //   2. Admin override grant (student_quiz_grants)
-//   3. Inherited from case access — if the student can see a case, they can
-//      take its pre/post quizzes too. Keeps the original release-a-case-and-
-//      its-tests-come-with-it UX so teachers don't have to remember to
-//      release each pre/post separately.
+//   3. Quiz attached to a case the student was individually granted
+//      (student_case_grants) — an explicit per-student admin action.
+// Note: releasing a *case* does NOT auto-release its quizzes. Teachers/admins
+// release each quiz separately so an unreleased quiz never leaks to students.
 async function accessibleQuizIds(studentId: string): Promise<Set<string>> {
   const [studentRow] = await db
     .select({ classroomId: students.classroomId })
@@ -39,19 +39,6 @@ async function accessibleQuizIds(studentId: string): Promise<Set<string>> {
       .from(quizReleases)
       .where(eq(quizReleases.classroomId, studentRow.classroomId));
     for (const r of released) ids.add(r.quizId);
-
-    // Path 3: quizzes attached to released cases — JOIN through caseReleases
-    const caseAttached = await db
-      .select({ quizId: quizzes.id })
-      .from(quizzes)
-      .innerJoin(caseReleases, eq(caseReleases.caseId, quizzes.caseId))
-      .where(
-        and(
-          eq(caseReleases.classroomId, studentRow.classroomId),
-          isNull(quizzes.deletedAt)
-        )
-      );
-    for (const r of caseAttached) ids.add(r.quizId);
   }
 
   // Path 2: admin override grants

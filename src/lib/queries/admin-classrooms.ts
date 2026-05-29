@@ -8,6 +8,8 @@ import {
   cases,
   caseReleases,
   caseLevelConfig,
+  quizzes,
+  quizReleases,
 } from "@/db/schema";
 
 export interface AdminClassroomRow {
@@ -64,6 +66,15 @@ export interface AdminClassroomDetail {
     isPublished: boolean;
     isReleased: boolean;
   }>;
+  // All quizzes (case-attached + standalone) with this classroom's release
+  // state. Released independently of cases — mirrors the teacher view.
+  availableQuizzes: Array<{
+    id: string;
+    title: string;
+    scope: "pre" | "post" | null;
+    caseTitle: string | null;
+    isReleased: boolean;
+  }>;
 }
 
 export async function getClassroomDetailForAdmin(
@@ -86,6 +97,25 @@ export async function getClassroomDetailForAdmin(
 
   if (!row) return null;
 
+  // All quizzes with this classroom's release state — not level-filtered,
+  // matching the teacher classroom view. Released independently of cases.
+  const availableQuizzes = await db
+    .select({
+      id: quizzes.id,
+      title: quizzes.title,
+      scope: quizzes.scope,
+      caseTitle: cases.title,
+      isReleased: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${quizReleases}
+        WHERE ${quizReleases.classroomId} = ${classroomId}
+          AND ${quizReleases.quizId} = ${quizzes.id}
+      )`,
+    })
+    .from(quizzes)
+    .leftJoin(cases, eq(cases.id, quizzes.caseId))
+    .where(isNull(quizzes.deletedAt))
+    .orderBy(asc(quizzes.title));
+
   // Cases tagged for this level.
   const levelTaggedCaseIds = (
     await db
@@ -105,6 +135,7 @@ export async function getClassroomDetailForAdmin(
         schoolName: row.schoolName,
       },
       availableCases: [],
+      availableQuizzes,
     };
   }
 
@@ -144,5 +175,6 @@ export async function getClassroomDetailForAdmin(
       isPublished: c.publishedAt !== null,
       isReleased: releasedSet.has(c.id),
     })),
+    availableQuizzes,
   };
 }
