@@ -23,7 +23,7 @@ const LOGIN_PATHS = new Set([
   "/login",
   "/admin/login",
   "/signup",
-  "/signup/check-email",
+  "/signup/pending",
   "/forgot-password",
   "/reset-password",
 ]);

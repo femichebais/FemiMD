@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CCard, CEyebrow } from "@/components/clinical/primitives";
 
-export const metadata: Metadata = { title: "Check your email" };
+export const metadata: Metadata = { title: "Pending approval" };
 
 type SearchParams = { email?: string | string[] };
 
-export default async function CheckEmailPage({
+export default async function SignupPendingPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -18,35 +18,33 @@ export default async function CheckEmailPage({
     <>
       <div className="text-center mb-8">
         <CEyebrow className="mb-3 justify-center inline-block">
-          Almost done
+          Request received
         </CEyebrow>
         <h1 className="font-serif text-[36px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
-          Check your inbox.
+          Pending approval.
         </h1>
         <p className="text-[15.5px] text-clinical-muted-fg">
-          We sent a confirmation link to{" "}
+          Your account{" "}
           {email ? (
-            <span className="font-medium text-clinical-fg">{email}</span>
-          ) : (
-            "your email"
-          )}
-          . Click it to finish creating your account.
+            <span className="font-medium text-clinical-fg">({email})</span>
+          ) : null}{" "}
+          has been created and is now waiting for an admin to approve it.
         </p>
       </div>
 
       <CCard className="p-6 md:p-7">
         <p className="text-[14px] leading-relaxed text-clinical-muted-fg">
-          After you confirm, an admin will review your request and approve
-          access. You&apos;ll get an email when you&apos;re in.
+          You&apos;ll get an email as soon as you&apos;re approved — then you can
+          sign in with the password you just chose. No need to do anything until
+          then.
         </p>
         <p className="mt-4 text-[13px] text-clinical-muted-fg">
-          Didn&apos;t get the email? Check your spam folder, or wait a minute
-          before trying{" "}
+          Already approved?{" "}
           <Link
-            href="/signup"
+            href="/login"
             className="font-medium text-clinical-primary hover:text-clinical-fg"
           >
-            again
+            Sign in
           </Link>
           .
         </p>

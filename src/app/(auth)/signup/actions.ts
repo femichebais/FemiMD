@@ -1,16 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { db } from "@/db/client";
+import { profiles, pendingSignups } from "@/db/schema";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email/send";
-import { signupConfirmationEmail } from "@/lib/email/templates";
-import { getSiteUrl } from "@/lib/site-url";
 
 export interface SignupFormState {
   error?: string;
   values?: { name: string; email: string };
 }
 
+// Self-serve signup. The account is created in the *pending* state right away
+// — profile + pending_signups row — so it shows up in the admin Signups queue
+// immediately. We do NOT send any email here and the account cannot reach app
+// content yet (role 'pending'); the approval email + access are granted later
+// when an admin approves (see admin/signups/actions.ts → promoteAndNotify).
 export async function signUp(
   _prevState: SignupFormState,
   formData: FormData
@@ -29,24 +33,21 @@ export async function signUp(
     };
 
   const admin = createSupabaseAdminClient();
-  const siteUrl = await getSiteUrl();
 
-  // generateLink with type='signup' creates the unconfirmed auth user AND
-  // returns a confirmation URL in one call — we then mail it ourselves via
-  // Resend (consistent with how teacher invites work). Role is NOT set yet;
-  // the /auth/confirm callback promotes them to 'pending' on email verify.
-  const { data, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "signup",
+  // Create the auth user directly (no confirmation email). email_confirm:true
+  // marks the address usable so that, once approved, they can sign in with the
+  // password they just chose. Role starts as 'pending' — middleware shunts
+  // them to /pending until an admin promotes them to 'student'.
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: { name },
-      redirectTo: `${siteUrl}/auth/confirm?next=/pending`,
-    },
+    email_confirm: true,
+    app_metadata: { role: "pending" },
+    user_metadata: { name },
   });
 
-  if (linkErr || !data?.properties?.action_link) {
-    const msg = linkErr?.message ?? "";
+  if (createErr || !created?.user) {
+    const msg = createErr?.message ?? "";
     if (/already (registered|exists)/i.test(msg)) {
       return {
         error:
@@ -54,27 +55,30 @@ export async function signUp(
         values: { name, email },
       };
     }
-    console.error("[signup] generateLink failed:", linkErr);
+    console.error("[signup] createUser failed:", createErr);
     return {
       error: "Could not create your account. Try again.",
       values: { name, email },
     };
   }
 
-  const confirmUrl = data.properties.action_link;
-  const tpl = signupConfirmationEmail({ name, confirmUrl });
-  const emailResult = await sendEmail({
-    to: email,
-    subject: tpl.subject,
-    html: tpl.html,
-  });
+  const userId = created.user.id;
 
-  if (!emailResult.ok) {
-    // Email failed — log so admin can investigate; user still sees the
-    // "check your inbox" screen because their account *was* created and
-    // they can request a resend later via password reset.
-    console.warn("[signup] confirmation email failed:", emailResult.error);
+  // Profile (role 'pending') + queue entry, in one transaction. On failure,
+  // roll back the auth user so the email isn't left half-registered.
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(profiles).values({ id: userId, role: "pending" });
+      await tx.insert(pendingSignups).values({ id: userId, email, name });
+    });
+  } catch (err) {
+    console.error("[signup] DB insert failed:", err);
+    await admin.auth.admin.deleteUser(userId);
+    return {
+      error: "Could not create your account. Try again.",
+      values: { name, email },
+    };
   }
 
-  redirect(`/signup/check-email?email=${encodeURIComponent(email)}`);
+  redirect(`/signup/pending?email=${encodeURIComponent(email)}`);
 }
