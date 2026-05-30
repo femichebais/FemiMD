@@ -59,6 +59,22 @@ export async function listTeacherClassrooms(
     .orderBy(desc(classrooms.createdAt));
 }
 
+// Distinct grade levels across a teacher's (non-deleted) classrooms. Cases,
+// resources, and library pages are all level-tagged; a teacher only has
+// access to content matching one of these levels. Empty array = the teacher
+// owns no classrooms yet, so they see nothing.
+export async function getTeacherLevels(
+  teacherId: string
+): Promise<Array<"middle" | "high" | "undergrad">> {
+  const rows = await db
+    .selectDistinct({ level: classrooms.level })
+    .from(classrooms)
+    .where(
+      and(eq(classrooms.teacherId, teacherId), isNull(classrooms.deletedAt))
+    );
+  return rows.map((r) => r.level);
+}
+
 export interface ClassroomDetail {
   classroom: {
     id: string;

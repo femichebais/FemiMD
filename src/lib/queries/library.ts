@@ -1,4 +1,4 @@
-import { eq, and, isNull, asc, sql } from "drizzle-orm";
+import { eq, and, isNull, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   libraryPages,
@@ -9,6 +9,7 @@ import {
   type LibraryPage,
   type LibraryPageSection,
 } from "@/db/schema";
+import { getTeacherLevels } from "./teacher";
 
 // Fetch a page's ordered sections. Used by all three audiences.
 async function getSectionsForPage(
@@ -99,11 +100,24 @@ export async function getLibraryPageForStudent(
 }
 
 // =============================================================================
-// Teacher queries — teachers see every non-deleted library page regardless
-// of level. They review across cohorts and benefit from full visibility.
+// Teacher queries — scoped to the levels of the teacher's classrooms, so a
+// middle-school teacher only sees middle-school articles, etc. A teacher who
+// runs multiple levels sees the union.
 // =============================================================================
 
-export async function listLibraryForTeacher(): Promise<LibraryTocEntry[]> {
+export async function listLibraryForTeacher(
+  teacherId: string
+): Promise<LibraryTocEntry[]> {
+  const levels = await getTeacherLevels(teacherId);
+  if (levels.length === 0) return [];
+
+  const idRows = await db
+    .selectDistinct({ pageId: libraryPageLevels.libraryPageId })
+    .from(libraryPageLevels)
+    .where(inArray(libraryPageLevels.level, levels));
+  const ids = idRows.map((r) => r.pageId);
+  if (ids.length === 0) return [];
+
   return await db
     .select({
       id: libraryPages.id,
@@ -112,23 +126,35 @@ export async function listLibraryForTeacher(): Promise<LibraryTocEntry[]> {
       eyebrow: libraryPages.eyebrow,
     })
     .from(libraryPages)
-    .where(isNull(libraryPages.deletedAt))
+    .where(and(isNull(libraryPages.deletedAt), inArray(libraryPages.id, ids)))
     .orderBy(asc(libraryPages.title));
 }
 
 export async function getLibraryPageForTeacher(
-  slug: string
+  slug: string,
+  teacherId: string
 ): Promise<LibraryPageWithSections | null> {
-  const [page] = await db
-    .select()
+  const levels = await getTeacherLevels(teacherId);
+  if (levels.length === 0) return null;
+
+  const [row] = await db
+    .select({ page: libraryPages })
     .from(libraryPages)
+    .innerJoin(
+      libraryPageLevels,
+      eq(libraryPageLevels.libraryPageId, libraryPages.id)
+    )
     .where(
-      and(eq(libraryPages.diagnosisSlug, slug), isNull(libraryPages.deletedAt))
+      and(
+        eq(libraryPages.diagnosisSlug, slug),
+        isNull(libraryPages.deletedAt),
+        inArray(libraryPageLevels.level, levels)
+      )
     )
     .limit(1);
-  if (!page) return null;
-  const sections = await getSectionsForPage(page.id);
-  return { page, sections };
+  if (!row?.page) return null;
+  const sections = await getSectionsForPage(row.page.id);
+  return { page: row.page, sections };
 }
 
 // =============================================================================

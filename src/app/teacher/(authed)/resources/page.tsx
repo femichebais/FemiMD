@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth/current-user";
-import { listAllResources, type AdminResourceRow } from "@/lib/queries/resources";
+import {
+  listResourcesForTeacher,
+  type AdminResourceRow,
+} from "@/lib/queries/resources";
 import { CEyebrow } from "@/components/clinical/primitives";
 
 export const metadata: Metadata = { title: "Resources" };
@@ -11,9 +14,9 @@ const TYPE_LABEL: Record<string, string> = {
   slides: "Slides",
 };
 
-async function safeList(): Promise<AdminResourceRow[]> {
+async function safeList(teacherId: string): Promise<AdminResourceRow[]> {
   try {
-    return await listAllResources();
+    return await listResourcesForTeacher(teacherId);
   } catch (err) {
     if (process.env.NODE_ENV === "production") {
       console.error("[teacher/resources]", err);
@@ -23,8 +26,8 @@ async function safeList(): Promise<AdminResourceRow[]> {
 }
 
 export default async function TeacherResourcesPage() {
-  await requireRole("teacher");
-  const rows = await safeList();
+  const { user } = await requireRole("teacher");
+  const rows = await safeList(user.id);
 
   return (
     <main className="max-w-4xl mx-auto px-5 md:px-8 py-10 md:py-14">
@@ -33,12 +36,12 @@ export default async function TeacherResourcesPage() {
         Reading list.
       </h1>
       <p className="text-[15.5px] text-clinical-muted-fg mb-10">
-        Reference material shared across the platform.
+        Reference material tagged for your classroom levels.
       </p>
 
       {rows.length === 0 ? (
         <p className="text-[15px] text-clinical-muted-fg">
-          No resources have been shared yet.
+          No resources tagged for your classroom levels yet.
         </p>
       ) : (
         <ul className="border-t border-clinical-border">

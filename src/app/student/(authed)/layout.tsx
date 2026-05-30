@@ -42,7 +42,7 @@ export default async function StudentAuthedLayout({
       <ClinicalNav
         brandHref="/student"
         links={[
-          { label: "Cases", href: "/student" },
+          { label: "Cases", href: "/student/cases" },
           { label: "Quizzes", href: "/student/quizzes" },
           { label: "Clinical Library", href: "/student/library" },
           { label: "Progress", href: "/student/progress" },

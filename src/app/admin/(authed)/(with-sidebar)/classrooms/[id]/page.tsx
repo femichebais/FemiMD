@@ -4,6 +4,7 @@ import { StageLabel } from "@/components/ui";
 import { getClassroomDetailForAdmin } from "@/lib/queries/admin-classrooms";
 import { ReleaseToggle } from "./release-toggle";
 import { QuizReleaseToggle } from "./quiz-release-toggle";
+import { DeleteClassroomButton } from "./delete-classroom-button";
 
 const LEVEL_LABEL: Record<string, string> = {
   middle: "Middle school",
@@ -130,6 +131,13 @@ export default async function AdminClassroomDetailPage({ params }: PageProps) {
           ))}
         </ul>
       )}
+
+      <div className="mt-16 pt-6 border-t border-rule">
+        <DeleteClassroomButton
+          classroomId={classroom.id}
+          classroomName={classroom.name}
+        />
+      </div>
     </>
   );
 }
