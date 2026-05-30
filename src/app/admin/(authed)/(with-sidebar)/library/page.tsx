@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button, StageLabel } from "@/components/ui";
+import { StageLabel } from "@/components/ui";
+import { CLinkButton } from "@/components/clinical/primitives";
 import { listAllLibraryPages, type AdminLibraryRow } from "@/lib/queries/library";
 import { DeleteLibraryButton } from "./[slug]/delete-library-button";
 
@@ -30,9 +31,9 @@ export default async function AdminLibraryPage() {
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
           Diagnosis articles.
         </h1>
-        <Link href="/admin/library/new">
-          <Button>+ New page</Button>
-        </Link>
+        <CLinkButton href="/admin/library/new" size="sm">
+          + New page
+        </CLinkButton>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Linked from case feedback pages by slug. Text and images are freely

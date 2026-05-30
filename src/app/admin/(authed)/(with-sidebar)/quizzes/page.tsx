@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Button, StageLabel } from "@/components/ui";
+import { StageLabel } from "@/components/ui";
+import { CLinkButton } from "@/components/clinical/primitives";
 import { listAllQuizzes, type AdminQuizRow } from "@/lib/queries/quiz";
 import { DeleteQuizButton } from "./delete-quiz-button";
 
@@ -27,9 +28,9 @@ export default async function AdminQuizzesPage() {
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
           All quizzes.
         </h1>
-        <Link href="/admin/quizzes/new">
-          <Button>+ New quiz</Button>
-        </Link>
+        <CLinkButton href="/admin/quizzes/new" size="sm">
+          + New quiz
+        </CLinkButton>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Case-attached quizzes are auto-provisioned the first time you open

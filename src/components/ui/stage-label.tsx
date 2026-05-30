@@ -1,8 +1,8 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-// Textbook-caption metadata — mono, uppercase, letter-spaced.
-// Default sits above case questions and section dividers.
+// Small uppercase eyebrow above section titles. Matches the clinical CEyebrow
+// (blue, Inter, semibold) so admin + student surfaces share one eyebrow style.
 export function StageLabel({
   className,
   ...props
@@ -10,9 +10,7 @@ export function StageLabel({
   return (
     <p
       className={cn(
-        "font-mono text-[11px] uppercase text-ink-fade",
-        // tracking-[0.2em] = letter-spacing 0.2em from the mockup
-        "tracking-[0.2em]",
+        "text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary",
         className
       )}
       {...props}
