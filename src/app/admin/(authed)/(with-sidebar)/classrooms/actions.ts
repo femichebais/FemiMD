@@ -6,8 +6,10 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   classrooms,
-  caseReleases,
-  quizReleases,
+  classroomCaseAssignments,
+  classroomQuizAssignments,
+  classroomLibraryAssignments,
+  classroomResourceAssignments,
   students,
 } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
@@ -15,31 +17,50 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type ToggleResult = { ok: true } | { ok: false; error: string };
 
-// Admin-side case release toggle. Mirrors the teacher action but with an
-// admin role check instead of a teacher-owns-classroom check, so platform
-// admins can push cases to any classroom without going through that
-// classroom's teacher.
-export async function adminToggleCaseRelease(args: {
-  classroomId: string;
-  caseId: string;
-  release: boolean;
-}): Promise<ToggleResult> {
-  await requireRole("admin");
-
+// Verify the classroom exists (and isn't soft-deleted). Shared by every
+// admin assignment toggle below.
+async function classroomExists(classroomId: string): Promise<boolean> {
   const [classroom] = await db
     .select({ id: classrooms.id })
     .from(classrooms)
-    .where(
-      and(eq(classrooms.id, args.classroomId), isNull(classrooms.deletedAt))
-    )
+    .where(and(eq(classrooms.id, classroomId), isNull(classrooms.deletedAt)))
     .limit(1);
-  if (!classroom) return { ok: false, error: "Classroom not found." };
+  return Boolean(classroom);
+}
+
+// Revalidate every surface that reads an assignment: the admin classroom
+// views plus the teacher's dashboard + classroom (teachers see only assigned
+// content, so an assignment change must invalidate their cache too).
+function revalidateAssignment(classroomId: string) {
+  revalidatePath(`/admin/classrooms/${classroomId}`);
+  revalidatePath("/admin/classrooms");
+  revalidatePath(`/teacher/classroom/${classroomId}`);
+  revalidatePath("/teacher");
+  revalidatePath("/teacher/library");
+  revalidatePath("/teacher/resources");
+}
+
+// =============================================================================
+// Admin assignment toggles (admin → teacher, tier 1)
+// =============================================================================
+// Presence of an assignment row = the classroom's teacher can see this
+// content. The teacher then decides what to release to students. Admins do NOT
+// release to students directly — that's the teacher's call.
+
+export async function adminToggleCaseAssignment(args: {
+  classroomId: string;
+  caseId: string;
+  assign: boolean;
+}): Promise<ToggleResult> {
+  await requireRole("admin");
+  if (!(await classroomExists(args.classroomId)))
+    return { ok: false, error: "Classroom not found." };
 
   try {
-    if (args.release) {
+    if (args.assign) {
       try {
         await db
-          .insert(caseReleases)
+          .insert(classroomCaseAssignments)
           .values({ classroomId: args.classroomId, caseId: args.caseId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -47,52 +68,37 @@ export async function adminToggleCaseRelease(args: {
       }
     } else {
       await db
-        .delete(caseReleases)
+        .delete(classroomCaseAssignments)
         .where(
           and(
-            eq(caseReleases.classroomId, args.classroomId),
-            eq(caseReleases.caseId, args.caseId)
+            eq(classroomCaseAssignments.classroomId, args.classroomId),
+            eq(classroomCaseAssignments.caseId, args.caseId)
           )
         );
     }
   } catch (err) {
-    console.error("[admin/adminToggleCaseRelease]", err);
-    return { ok: false, error: "Could not update release." };
+    console.error("[admin/adminToggleCaseAssignment]", err);
+    return { ok: false, error: "Could not update assignment." };
   }
 
-  revalidatePath(`/admin/classrooms/${args.classroomId}`);
-  revalidatePath("/admin/classrooms");
-  // Teacher's dashboard + classroom views also read case_releases — keep
-  // their cache fresh in case a teacher is mid-session.
-  revalidatePath(`/teacher/classroom/${args.classroomId}`);
-  revalidatePath("/teacher");
+  revalidateAssignment(args.classroomId);
   return { ok: true };
 }
 
-// Admin-side quiz release toggle. Mirrors adminToggleCaseRelease but writes
-// quiz_releases, so admins can release/unrelease quizzes to any classroom
-// independently of case releases.
-export async function adminToggleQuizRelease(args: {
+export async function adminToggleQuizAssignment(args: {
   classroomId: string;
   quizId: string;
-  release: boolean;
+  assign: boolean;
 }): Promise<ToggleResult> {
   await requireRole("admin");
-
-  const [classroom] = await db
-    .select({ id: classrooms.id })
-    .from(classrooms)
-    .where(
-      and(eq(classrooms.id, args.classroomId), isNull(classrooms.deletedAt))
-    )
-    .limit(1);
-  if (!classroom) return { ok: false, error: "Classroom not found." };
+  if (!(await classroomExists(args.classroomId)))
+    return { ok: false, error: "Classroom not found." };
 
   try {
-    if (args.release) {
+    if (args.assign) {
       try {
         await db
-          .insert(quizReleases)
+          .insert(classroomQuizAssignments)
           .values({ classroomId: args.classroomId, quizId: args.quizId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -100,23 +106,98 @@ export async function adminToggleQuizRelease(args: {
       }
     } else {
       await db
-        .delete(quizReleases)
+        .delete(classroomQuizAssignments)
         .where(
           and(
-            eq(quizReleases.classroomId, args.classroomId),
-            eq(quizReleases.quizId, args.quizId)
+            eq(classroomQuizAssignments.classroomId, args.classroomId),
+            eq(classroomQuizAssignments.quizId, args.quizId)
           )
         );
     }
   } catch (err) {
-    console.error("[admin/adminToggleQuizRelease]", err);
-    return { ok: false, error: "Could not update release." };
+    console.error("[admin/adminToggleQuizAssignment]", err);
+    return { ok: false, error: "Could not update assignment." };
   }
 
-  revalidatePath(`/admin/classrooms/${args.classroomId}`);
-  revalidatePath("/admin/classrooms");
-  revalidatePath(`/teacher/classroom/${args.classroomId}`);
-  revalidatePath("/teacher");
+  revalidateAssignment(args.classroomId);
+  return { ok: true };
+}
+
+export async function adminToggleLibraryAssignment(args: {
+  classroomId: string;
+  libraryPageId: string;
+  assign: boolean;
+}): Promise<ToggleResult> {
+  await requireRole("admin");
+  if (!(await classroomExists(args.classroomId)))
+    return { ok: false, error: "Classroom not found." };
+
+  try {
+    if (args.assign) {
+      try {
+        await db.insert(classroomLibraryAssignments).values({
+          classroomId: args.classroomId,
+          libraryPageId: args.libraryPageId,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/duplicate|unique/i.test(msg)) throw err;
+      }
+    } else {
+      await db
+        .delete(classroomLibraryAssignments)
+        .where(
+          and(
+            eq(classroomLibraryAssignments.classroomId, args.classroomId),
+            eq(classroomLibraryAssignments.libraryPageId, args.libraryPageId)
+          )
+        );
+    }
+  } catch (err) {
+    console.error("[admin/adminToggleLibraryAssignment]", err);
+    return { ok: false, error: "Could not update assignment." };
+  }
+
+  revalidateAssignment(args.classroomId);
+  return { ok: true };
+}
+
+export async function adminToggleResourceAssignment(args: {
+  classroomId: string;
+  resourceId: string;
+  assign: boolean;
+}): Promise<ToggleResult> {
+  await requireRole("admin");
+  if (!(await classroomExists(args.classroomId)))
+    return { ok: false, error: "Classroom not found." };
+
+  try {
+    if (args.assign) {
+      try {
+        await db.insert(classroomResourceAssignments).values({
+          classroomId: args.classroomId,
+          resourceId: args.resourceId,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/duplicate|unique/i.test(msg)) throw err;
+      }
+    } else {
+      await db
+        .delete(classroomResourceAssignments)
+        .where(
+          and(
+            eq(classroomResourceAssignments.classroomId, args.classroomId),
+            eq(classroomResourceAssignments.resourceId, args.resourceId)
+          )
+        );
+    }
+  } catch (err) {
+    console.error("[admin/adminToggleResourceAssignment]", err);
+    return { ok: false, error: "Could not update assignment." };
+  }
+
+  revalidateAssignment(args.classroomId);
   return { ok: true };
 }
 

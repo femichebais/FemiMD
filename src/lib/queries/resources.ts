@@ -3,11 +3,12 @@ import { db } from "@/db/client";
 import {
   resources,
   resourceLevels,
+  resourceReleases,
+  classroomResourceAssignments,
   classrooms,
   students,
   type Resource,
 } from "@/db/schema";
-import { getTeacherLevels } from "./teacher";
 
 export interface AdminResourceRow {
   id: string;
@@ -39,19 +40,23 @@ export async function listAllResources(): Promise<AdminResourceRow[]> {
     .orderBy(asc(resources.title));
 }
 
-// Resources a teacher can see: tagged for one of the teacher's classroom
-// levels. Mirrors how students are scoped, but unions across all the
-// teacher's classrooms (a teacher may run middle + high sections).
+// Resources a teacher can see: assigned by an admin to one of the teacher's
+// classrooms (classroom_resource_assignments). A teacher running multiple
+// classrooms sees the union of their assignments.
 export async function listResourcesForTeacher(
   teacherId: string
 ): Promise<AdminResourceRow[]> {
-  const levels = await getTeacherLevels(teacherId);
-  if (levels.length === 0) return [];
-
   const idRows = await db
-    .selectDistinct({ resourceId: resourceLevels.resourceId })
-    .from(resourceLevels)
-    .where(inArray(resourceLevels.level, levels));
+    .selectDistinct({ resourceId: classroomResourceAssignments.resourceId })
+    .from(classroomResourceAssignments)
+    .innerJoin(
+      classrooms,
+      and(
+        eq(classrooms.id, classroomResourceAssignments.classroomId),
+        eq(classrooms.teacherId, teacherId),
+        isNull(classrooms.deletedAt)
+      )
+    );
   const ids = idRows.map((r) => r.resourceId);
   if (ids.length === 0) return [];
 
@@ -81,7 +86,9 @@ export interface StudentResourceRow {
   url: string;
 }
 
-// Resources tagged for the student's classroom level.
+// Resources released to the student's classroom (resource_releases). Now
+// gated by teacher release, the same as cases/quizzes — no longer auto-visible
+// by grade level.
 export async function listResourcesForStudent(
   studentId: string
 ): Promise<StudentResourceRow[]> {
@@ -94,15 +101,15 @@ export async function listResourcesForStudent(
     })
     .from(resources)
     .innerJoin(
-      resourceLevels,
-      eq(resourceLevels.resourceId, resources.id)
+      resourceReleases,
+      eq(resourceReleases.resourceId, resources.id)
     )
     .innerJoin(students, eq(students.id, studentId))
     .innerJoin(
       classrooms,
       and(
         eq(classrooms.id, students.classroomId),
-        eq(classrooms.level, resourceLevels.level)
+        eq(classrooms.id, resourceReleases.classroomId)
       )
     )
     .where(and(isNull(resources.deletedAt), isNull(classrooms.deletedAt)))

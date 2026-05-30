@@ -1,4 +1,4 @@
-import { eq, and, isNull, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, asc, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   classrooms,
@@ -6,10 +6,16 @@ import {
   teachers,
   students,
   cases,
-  caseReleases,
   caseLevelConfig,
   quizzes,
-  quizReleases,
+  libraryPages,
+  libraryPageLevels,
+  resources,
+  resourceLevels,
+  classroomCaseAssignments,
+  classroomQuizAssignments,
+  classroomLibraryAssignments,
+  classroomResourceAssignments,
 } from "@/db/schema";
 
 export interface AdminClassroomRow {
@@ -19,7 +25,7 @@ export interface AdminClassroomRow {
   teacherName: string;
   schoolName: string;
   studentCount: number;
-  releasedCaseCount: number;
+  assignedCaseCount: number;
 }
 
 export async function listAllClassrooms(): Promise<AdminClassroomRow[]> {
@@ -31,7 +37,7 @@ export async function listAllClassrooms(): Promise<AdminClassroomRow[]> {
       teacherName: teachers.name,
       schoolName: schools.name,
       studentCount: sql<number>`COUNT(DISTINCT ${students.id})::int`,
-      releasedCaseCount: sql<number>`COUNT(DISTINCT ${caseReleases.caseId})::int`,
+      assignedCaseCount: sql<number>`COUNT(DISTINCT ${classroomCaseAssignments.caseId})::int`,
     })
     .from(classrooms)
     .innerJoin(teachers, eq(teachers.id, classrooms.teacherId))
@@ -40,7 +46,10 @@ export async function listAllClassrooms(): Promise<AdminClassroomRow[]> {
       students,
       and(eq(students.classroomId, classrooms.id), isNull(students.deletedAt))
     )
-    .leftJoin(caseReleases, eq(caseReleases.classroomId, classrooms.id))
+    .leftJoin(
+      classroomCaseAssignments,
+      eq(classroomCaseAssignments.classroomId, classrooms.id)
+    )
     .where(isNull(classrooms.deletedAt))
     .groupBy(classrooms.id, teachers.name, schools.name)
     .orderBy(asc(schools.name), asc(teachers.name), asc(classrooms.name));
@@ -57,23 +66,36 @@ export interface AdminClassroomDetail {
     teacherEmail: string;
     schoolName: string;
   };
-  // Cases at the classroom's level. Released = a case_releases row exists.
-  // Includes draft cases (no publishedAt) so admins can release pre-publish
-  // if they want — admin's discretion. Most will only release published.
+  // Cases at the classroom's level. Assigned = a classroom_case_assignments
+  // row exists (admin → teacher). Includes draft cases (no publishedAt) so
+  // admins can assign pre-publish if they want — admin's discretion.
   availableCases: Array<{
     id: string;
     title: string;
     isPublished: boolean;
-    isReleased: boolean;
+    isAssigned: boolean;
   }>;
-  // All quizzes (case-attached + standalone) with this classroom's release
-  // state. Released independently of cases — mirrors the teacher view.
+  // All quizzes (case-attached + standalone) with this classroom's assignment
+  // state. Assigned independently of cases.
   availableQuizzes: Array<{
     id: string;
     title: string;
     scope: "pre" | "post" | null;
     caseTitle: string | null;
-    isReleased: boolean;
+    isAssigned: boolean;
+  }>;
+  // Library pages at the classroom's level with this classroom's assignment
+  // state.
+  availableLibrary: Array<{
+    id: string;
+    title: string;
+    isAssigned: boolean;
+  }>;
+  // Resources at the classroom's level with this classroom's assignment state.
+  availableResources: Array<{
+    id: string;
+    title: string;
+    isAssigned: boolean;
   }>;
 }
 
@@ -97,18 +119,18 @@ export async function getClassroomDetailForAdmin(
 
   if (!row) return null;
 
-  // All quizzes with this classroom's release state — not level-filtered,
-  // matching the teacher classroom view. Released independently of cases.
+  // All quizzes with this classroom's assignment state — not level-filtered,
+  // matching the teacher classroom view. Assigned independently of cases.
   const availableQuizzes = await db
     .select({
       id: quizzes.id,
       title: quizzes.title,
       scope: quizzes.scope,
       caseTitle: cases.title,
-      isReleased: sql<boolean>`EXISTS (
-        SELECT 1 FROM ${quizReleases}
-        WHERE ${quizReleases.classroomId} = ${classroomId}
-          AND ${quizReleases.quizId} = ${quizzes.id}
+      isAssigned: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${classroomQuizAssignments}
+        WHERE ${classroomQuizAssignments.classroomId} = ${classroomId}
+          AND ${classroomQuizAssignments.quizId} = ${quizzes.id}
       )`,
     })
     .from(quizzes)
@@ -116,49 +138,72 @@ export async function getClassroomDetailForAdmin(
     .where(isNull(quizzes.deletedAt))
     .orderBy(asc(quizzes.title));
 
-  // Cases tagged for this level.
-  const levelTaggedCaseIds = (
-    await db
-      .select({ caseId: caseLevelConfig.caseId })
-      .from(caseLevelConfig)
-      .where(eq(caseLevelConfig.level, row.level))
-  ).map((r) => r.caseId);
-
-  if (levelTaggedCaseIds.length === 0) {
-    return {
-      classroom: {
-        id: row.id,
-        name: row.name,
-        level: row.level,
-        teacherName: row.teacherName,
-        teacherEmail: row.teacherEmail,
-        schoolName: row.schoolName,
-      },
-      availableCases: [],
-      availableQuizzes,
-    };
-  }
-
+  // Cases tagged for this level + assignment state.
   const caseRows = await db
     .select({
       id: cases.id,
       title: cases.title,
       publishedAt: cases.publishedAt,
+      isAssigned: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${classroomCaseAssignments}
+        WHERE ${classroomCaseAssignments.classroomId} = ${classroomId}
+          AND ${classroomCaseAssignments.caseId} = ${cases.id}
+      )`,
     })
     .from(cases)
-    .where(
-      and(inArray(cases.id, levelTaggedCaseIds), isNull(cases.deletedAt))
+    .innerJoin(
+      caseLevelConfig,
+      and(
+        eq(caseLevelConfig.caseId, cases.id),
+        eq(caseLevelConfig.level, row.level)
+      )
     )
+    .where(isNull(cases.deletedAt))
     .orderBy(asc(cases.title));
 
-  const releasedSet = new Set(
-    (
-      await db
-        .select({ caseId: caseReleases.caseId })
-        .from(caseReleases)
-        .where(eq(caseReleases.classroomId, classroomId))
-    ).map((r) => r.caseId)
-  );
+  // Library pages tagged for this level + assignment state.
+  const availableLibrary = await db
+    .select({
+      id: libraryPages.id,
+      title: libraryPages.title,
+      isAssigned: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${classroomLibraryAssignments}
+        WHERE ${classroomLibraryAssignments.classroomId} = ${classroomId}
+          AND ${classroomLibraryAssignments.libraryPageId} = ${libraryPages.id}
+      )`,
+    })
+    .from(libraryPages)
+    .innerJoin(
+      libraryPageLevels,
+      and(
+        eq(libraryPageLevels.libraryPageId, libraryPages.id),
+        eq(libraryPageLevels.level, row.level)
+      )
+    )
+    .where(isNull(libraryPages.deletedAt))
+    .orderBy(asc(libraryPages.title));
+
+  // Resources tagged for this level + assignment state.
+  const availableResources = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      isAssigned: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${classroomResourceAssignments}
+        WHERE ${classroomResourceAssignments.classroomId} = ${classroomId}
+          AND ${classroomResourceAssignments.resourceId} = ${resources.id}
+      )`,
+    })
+    .from(resources)
+    .innerJoin(
+      resourceLevels,
+      and(
+        eq(resourceLevels.resourceId, resources.id),
+        eq(resourceLevels.level, row.level)
+      )
+    )
+    .where(isNull(resources.deletedAt))
+    .orderBy(asc(resources.title));
 
   return {
     classroom: {
@@ -173,8 +218,10 @@ export async function getClassroomDetailForAdmin(
       id: c.id,
       title: c.title,
       isPublished: c.publishedAt !== null,
-      isReleased: releasedSet.has(c.id),
+      isAssigned: c.isAssigned,
     })),
     availableQuizzes,
+    availableLibrary,
+    availableResources,
   };
 }

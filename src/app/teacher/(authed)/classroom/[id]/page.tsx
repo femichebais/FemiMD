@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { getClassroomDetail } from "@/lib/queries/teacher";
 import { ReleaseToggle } from "./_components/release-toggle";
 import { QuizReleaseToggle } from "./_components/quiz-release-toggle";
+import { ReferenceReleaseToggle } from "./_components/reference-release-toggle";
 import { DeleteClassroomButton } from "./_components/delete-classroom-button";
 import { RemoveStudentButton } from "./_components/remove-student-button";
 import {
@@ -38,8 +39,15 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
   const proto = host.startsWith("localhost") ? "http" : "https";
   const inviteUrl = `${proto}://${host}/invite/${detail.classroom.inviteCode}`;
 
-  const { classroom, roster, availableCases, availableQuizzes, topline } =
-    detail;
+  const {
+    classroom,
+    roster,
+    availableCases,
+    availableQuizzes,
+    availableLibrary,
+    availableResources,
+    topline,
+  } = detail;
 
   return (
     <main className="max-w-6xl mx-auto px-5 md:px-8 py-10 md:py-14">
@@ -183,15 +191,14 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
         </CCard>
       )}
 
-      {/* Cases at this level */}
+      {/* Cases assigned to this classroom by the admin */}
       <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
-        Cases at this level
+        Cases
       </h2>
       {availableCases.length === 0 ? (
         <CCard className="px-6 py-8 text-center mb-14">
           <p className="text-clinical-muted-fg">
-            No cases have been authored for{" "}
-            {LEVEL_LABEL[classroom.level]} yet.
+            No cases assigned by your admin yet.
           </p>
         </CCard>
       ) : (
@@ -232,14 +239,13 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
         Quizzes
       </h2>
       {availableQuizzes.length === 0 ? (
-        <CCard className="px-6 py-8 text-center">
+        <CCard className="px-6 py-8 text-center mb-14">
           <p className="text-clinical-muted-fg">
-            No quizzes available yet. Admin can author them from{" "}
-            <code className="text-[12.5px] font-mono">/admin/quizzes</code>.
+            No quizzes assigned by your admin yet.
           </p>
         </CCard>
       ) : (
-        <CCard className="overflow-hidden">
+        <CCard className="overflow-hidden mb-14">
           <ul className="divide-y divide-clinical-border">
             {availableQuizzes.map((q) => (
               <li
@@ -263,6 +269,72 @@ export default async function ClassroomDetailPage({ params }: PageProps) {
                   classroomId={id}
                   quizId={q.id}
                   initialReleased={q.isReleased}
+                />
+              </li>
+            ))}
+          </ul>
+        </CCard>
+      )}
+
+      {/* Library pages assigned to this classroom by the admin */}
+      <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
+        Library
+      </h2>
+      {availableLibrary.length === 0 ? (
+        <CCard className="px-6 py-8 text-center mb-14">
+          <p className="text-clinical-muted-fg">
+            No library articles assigned by your admin yet.
+          </p>
+        </CCard>
+      ) : (
+        <CCard className="overflow-hidden mb-14">
+          <ul className="divide-y divide-clinical-border">
+            {availableLibrary.map((l) => (
+              <li
+                key={l.id}
+                className="px-5 py-4 grid grid-cols-[1fr_auto] items-center gap-4"
+              >
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
+                  {l.title}
+                </span>
+                <ReferenceReleaseToggle
+                  kind="library"
+                  classroomId={id}
+                  itemId={l.id}
+                  initialReleased={l.isReleased}
+                />
+              </li>
+            ))}
+          </ul>
+        </CCard>
+      )}
+
+      {/* Resources assigned to this classroom by the admin */}
+      <h2 className="font-serif text-[22px] tracking-[-0.01em] text-clinical-fg font-medium mb-4">
+        Resources
+      </h2>
+      {availableResources.length === 0 ? (
+        <CCard className="px-6 py-8 text-center">
+          <p className="text-clinical-muted-fg">
+            No resources assigned by your admin yet.
+          </p>
+        </CCard>
+      ) : (
+        <CCard className="overflow-hidden">
+          <ul className="divide-y divide-clinical-border">
+            {availableResources.map((r) => (
+              <li
+                key={r.id}
+                className="px-5 py-4 grid grid-cols-[1fr_auto] items-center gap-4"
+              >
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
+                  {r.title}
+                </span>
+                <ReferenceReleaseToggle
+                  kind="resource"
+                  classroomId={id}
+                  itemId={r.id}
+                  initialReleased={r.isReleased}
                 />
               </li>
             ))}

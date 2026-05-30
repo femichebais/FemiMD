@@ -8,6 +8,8 @@ import {
   classrooms,
   caseReleases,
   quizReleases,
+  libraryReleases,
+  resourceReleases,
   students,
 } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
@@ -122,6 +124,116 @@ export async function toggleQuizRelease(args: {
 
   revalidatePath(`/teacher/classroom/${args.classroomId}`);
   revalidatePath("/teacher");
+  return { ok: true };
+}
+
+// Library-release toggle — teacher releases an assigned library page to their
+// students. Same ownership-checked shape as the case/quiz versions; writes
+// library_releases (tier 2). Students see only released pages.
+export async function toggleLibraryRelease(args: {
+  classroomId: string;
+  libraryPageId: string;
+  release: boolean;
+}): Promise<ToggleResult> {
+  const { user } = await requireRole("teacher");
+
+  const [classroom] = await db
+    .select({ id: classrooms.id })
+    .from(classrooms)
+    .where(
+      and(
+        eq(classrooms.id, args.classroomId),
+        eq(classrooms.teacherId, user.id),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!classroom) return { ok: false, error: "Classroom not found." };
+
+  try {
+    if (args.release) {
+      try {
+        await db.insert(libraryReleases).values({
+          classroomId: args.classroomId,
+          libraryPageId: args.libraryPageId,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/duplicate|unique/i.test(msg)) throw err;
+      }
+    } else {
+      await db
+        .delete(libraryReleases)
+        .where(
+          and(
+            eq(libraryReleases.classroomId, args.classroomId),
+            eq(libraryReleases.libraryPageId, args.libraryPageId)
+          )
+        );
+    }
+  } catch (err) {
+    console.error("[teacher/toggleLibraryRelease]", err);
+    return { ok: false, error: "Could not update release." };
+  }
+
+  revalidatePath(`/teacher/classroom/${args.classroomId}`);
+  // Students read library_releases — keep their library cache fresh.
+  revalidatePath("/student/library");
+  return { ok: true };
+}
+
+// Resource-release toggle — teacher releases an assigned resource to their
+// students. Writes resource_releases (tier 2).
+export async function toggleResourceRelease(args: {
+  classroomId: string;
+  resourceId: string;
+  release: boolean;
+}): Promise<ToggleResult> {
+  const { user } = await requireRole("teacher");
+
+  const [classroom] = await db
+    .select({ id: classrooms.id })
+    .from(classrooms)
+    .where(
+      and(
+        eq(classrooms.id, args.classroomId),
+        eq(classrooms.teacherId, user.id),
+        isNull(classrooms.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!classroom) return { ok: false, error: "Classroom not found." };
+
+  try {
+    if (args.release) {
+      try {
+        await db.insert(resourceReleases).values({
+          classroomId: args.classroomId,
+          resourceId: args.resourceId,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/duplicate|unique/i.test(msg)) throw err;
+      }
+    } else {
+      await db
+        .delete(resourceReleases)
+        .where(
+          and(
+            eq(resourceReleases.classroomId, args.classroomId),
+            eq(resourceReleases.resourceId, args.resourceId)
+          )
+        );
+    }
+  } catch (err) {
+    console.error("[teacher/toggleResourceRelease]", err);
+    return { ok: false, error: "Could not update release." };
+  }
+
+  revalidatePath(`/teacher/classroom/${args.classroomId}`);
+  revalidatePath("/student/resources");
   return { ok: true };
 }
 

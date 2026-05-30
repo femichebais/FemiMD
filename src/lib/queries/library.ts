@@ -3,13 +3,14 @@ import { db } from "@/db/client";
 import {
   libraryPages,
   libraryPageLevels,
+  libraryReleases,
+  classroomLibraryAssignments,
   libraryPageSections,
   classrooms,
   students,
   type LibraryPage,
   type LibraryPageSection,
 } from "@/db/schema";
-import { getTeacherLevels } from "./teacher";
 
 // Fetch a page's ordered sections. Used by all three audiences.
 async function getSectionsForPage(
@@ -34,7 +35,9 @@ export interface LibraryTocEntry {
   eyebrow: string | null;
 }
 
-// Pages a student can see: not deleted, tagged for their classroom's level.
+// Pages a student can see: not deleted and released to their classroom
+// (library_releases). Reference content is now gated by teacher release, the
+// same as cases/quizzes — no longer auto-visible by grade level.
 export async function listLibraryForStudent(
   studentId: string
 ): Promise<LibraryTocEntry[]> {
@@ -47,15 +50,15 @@ export async function listLibraryForStudent(
     })
     .from(libraryPages)
     .innerJoin(
-      libraryPageLevels,
-      eq(libraryPageLevels.libraryPageId, libraryPages.id)
+      libraryReleases,
+      eq(libraryReleases.libraryPageId, libraryPages.id)
     )
     .innerJoin(students, eq(students.id, studentId))
     .innerJoin(
       classrooms,
       and(
         eq(classrooms.id, students.classroomId),
-        eq(classrooms.level, libraryPageLevels.level)
+        eq(classrooms.id, libraryReleases.classroomId)
       )
     )
     .where(
@@ -64,8 +67,8 @@ export async function listLibraryForStudent(
     .orderBy(asc(libraryPages.title));
 }
 
-// Single page lookup with the same level scoping. Returns null if the
-// student can't access it.
+// Single page lookup with the same release scoping. Returns null if the
+// page isn't released to the student's classroom.
 export async function getLibraryPageForStudent(
   studentId: string,
   slug: string
@@ -74,15 +77,15 @@ export async function getLibraryPageForStudent(
     .select({ page: libraryPages })
     .from(libraryPages)
     .innerJoin(
-      libraryPageLevels,
-      eq(libraryPageLevels.libraryPageId, libraryPages.id)
+      libraryReleases,
+      eq(libraryReleases.libraryPageId, libraryPages.id)
     )
     .innerJoin(students, eq(students.id, studentId))
     .innerJoin(
       classrooms,
       and(
         eq(classrooms.id, students.classroomId),
-        eq(classrooms.level, libraryPageLevels.level)
+        eq(classrooms.id, libraryReleases.classroomId)
       )
     )
     .where(
@@ -100,22 +103,32 @@ export async function getLibraryPageForStudent(
 }
 
 // =============================================================================
-// Teacher queries — scoped to the levels of the teacher's classrooms, so a
-// middle-school teacher only sees middle-school articles, etc. A teacher who
-// runs multiple levels sees the union.
+// Teacher queries — scoped to the pages an admin has assigned to one of the
+// teacher's classrooms (classroom_library_assignments). A teacher running
+// multiple classrooms sees the union of their assignments.
 // =============================================================================
+
+// Distinct library page ids assigned to any of this teacher's (non-deleted)
+// classrooms. Shared by the list + single-page teacher queries.
+async function assignedLibraryPageIds(teacherId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ pageId: classroomLibraryAssignments.libraryPageId })
+    .from(classroomLibraryAssignments)
+    .innerJoin(
+      classrooms,
+      and(
+        eq(classrooms.id, classroomLibraryAssignments.classroomId),
+        eq(classrooms.teacherId, teacherId),
+        isNull(classrooms.deletedAt)
+      )
+    );
+  return rows.map((r) => r.pageId);
+}
 
 export async function listLibraryForTeacher(
   teacherId: string
 ): Promise<LibraryTocEntry[]> {
-  const levels = await getTeacherLevels(teacherId);
-  if (levels.length === 0) return [];
-
-  const idRows = await db
-    .selectDistinct({ pageId: libraryPageLevels.libraryPageId })
-    .from(libraryPageLevels)
-    .where(inArray(libraryPageLevels.level, levels));
-  const ids = idRows.map((r) => r.pageId);
+  const ids = await assignedLibraryPageIds(teacherId);
   if (ids.length === 0) return [];
 
   return await db
@@ -134,21 +147,17 @@ export async function getLibraryPageForTeacher(
   slug: string,
   teacherId: string
 ): Promise<LibraryPageWithSections | null> {
-  const levels = await getTeacherLevels(teacherId);
-  if (levels.length === 0) return null;
+  const ids = await assignedLibraryPageIds(teacherId);
+  if (ids.length === 0) return null;
 
   const [row] = await db
     .select({ page: libraryPages })
     .from(libraryPages)
-    .innerJoin(
-      libraryPageLevels,
-      eq(libraryPageLevels.libraryPageId, libraryPages.id)
-    )
     .where(
       and(
         eq(libraryPages.diagnosisSlug, slug),
         isNull(libraryPages.deletedAt),
-        inArray(libraryPageLevels.level, levels)
+        inArray(libraryPages.id, ids)
       )
     )
     .limit(1);
