@@ -48,6 +48,13 @@ async function signInWithRoles(
     | Role
     | undefined;
 
+  // A self-signup awaiting admin approval has a valid login but role 'pending'.
+  // Send them to their holding pen instead of the "no access here" error —
+  // this is the path a re-created account (after an admin delete) lands on.
+  if (role === "pending") {
+    redirect("/pending");
+  }
+
   if (!role || !expectedRoles.includes(role)) {
     // Drop the half-valid session — we don't want a teacher-cookie hanging
     // around after they tried to use the admin login.

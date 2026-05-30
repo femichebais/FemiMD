@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, isNull, and } from "drizzle-orm";
+import { eq, isNull, and, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { profiles, teachers, schools } from "@/db/schema";
+import { profiles, teachers, schools, classrooms, students } from "@/db/schema";
 import { isNotNull } from "drizzle-orm";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -202,40 +202,43 @@ export async function deleteTeacher(
   if (!id) return { error: "Missing teacher id." };
 
   try {
-    await db.transaction(async (tx) => {
-      // 1. Soft-delete the teacher row so historical data (their classrooms,
-      //    student attempts inside those classrooms) stays intact.
-      await tx
-        .update(teachers)
-        .set({ deletedAt: new Date() })
-        .where(and(eq(teachers.id, id), isNull(teachers.deletedAt)));
-    });
+    // Find the teacher's classrooms first — classrooms.teacher_id is
+    // onDelete:restrict, so they must go before the teacher can be deleted.
+    const owned = await db
+      .select({ id: classrooms.id })
+      .from(classrooms)
+      .where(eq(classrooms.teacherId, id));
+    const classroomIds = owned.map((c) => c.id);
 
-    // 2. Tombstone the email in auth.users so the admin can re-add a
-    //    different teacher with that email later. Supabase enforces a
-    //    unique-email constraint on auth.users; without this step the
-    //    second "Invite teacher" with the same email errors with
-    //    "A user with this email address has already been registered."
-    //
-    //    .invalid is a reserved TLD (RFC 2606) so the tombstone can never
-    //    collide with a real address. We keep the profile + auth user
-    //    around so case/quiz attempt history continues to resolve names.
-    const admin = createSupabaseAdminClient();
-    const tombstoneEmail = `deleted-${Date.now()}-${id.slice(0, 8)}@deleted.invalid`;
-    const { error: renameErr } = await admin.auth.admin.updateUserById(id, {
-      email: tombstoneEmail,
-      email_confirm: true,
+    await db.transaction(async (tx) => {
+      if (classroomIds.length > 0) {
+        // Detach (don't delete) enrolled students — they're separate accounts,
+        // not the teacher's data. students.classroom_id is restrict, so we
+        // must null it before the classroom can be removed. Their attempt
+        // history stays intact.
+        await tx
+          .update(students)
+          .set({ classroomId: null })
+          .where(inArray(students.classroomId, classroomIds));
+
+        // Drop the classrooms — cascades all assignment + release rows
+        // (case/quiz/library/resource) that hang off classroom_id.
+        await tx
+          .delete(classrooms)
+          .where(inArray(classrooms.id, classroomIds));
+      }
     });
-    if (renameErr) {
-      // Non-fatal — DB delete already succeeded. Log and continue; admin
-      // can rotate the auth email manually if they need to free it.
-      console.warn(
-        "[admin/teachers/deleteTeacher] tombstone email failed:",
-        renameErr.message
-      );
-    }
   } catch (err) {
-    console.error("[admin/teachers/deleteTeacher]", err);
+    console.error("[admin/teachers/deleteTeacher] clearing classrooms", err);
+    return { error: "Could not delete teacher." };
+  }
+
+  // Delete the auth user — cascades profiles -> teachers. This removes the
+  // identity entirely and frees the email for reuse.
+  const admin = createSupabaseAdminClient();
+  const { error: delErr } = await admin.auth.admin.deleteUser(id);
+  if (delErr) {
+    console.error("[admin/teachers/deleteTeacher] deleteUser", delErr.message);
     return { error: "Could not delete teacher." };
   }
 

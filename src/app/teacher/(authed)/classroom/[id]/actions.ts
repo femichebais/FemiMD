@@ -11,6 +11,8 @@ import {
   libraryReleases,
   resourceReleases,
   students,
+  caseAttempts,
+  quizAttempts,
 } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -328,11 +330,11 @@ export async function deleteClassroom(
 }
 
 // =============================================================================
-// removeStudent — teacher soft-deletes a single student from their classroom
+// removeStudent — teacher hard-deletes a single student from their classroom
 // =============================================================================
-// Soft-deletes the student row (deletedAt set) and tombstones their auth
-// email. Mirrors the admin's deleteStudent path but ownership-checks the
-// classroom against the requesting teacher.
+// Fully removes the student — auth user, profile, students row, attempt
+// history, and grants. Mirrors the admin's deleteStudent teardown but
+// ownership-checks the classroom against the requesting teacher first.
 
 export interface RemoveStudentState {
   error?: string;
@@ -369,28 +371,25 @@ export async function removeStudent(
   if (!row) return { error: "Student not found in your classroom." };
 
   try {
-    await db
-      .update(students)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(students.id, studentId), isNull(students.deletedAt)));
+    // Clear the restrict-FK blockers (attempt history) so the auth-user delete
+    // can cascade through the students row. (case/quiz_attempts.student_id are
+    // onDelete:restrict; stage_attempts cascade off case_attempts.)
+    await db.transaction(async (tx) => {
+      await tx.delete(caseAttempts).where(eq(caseAttempts.studentId, studentId));
+      await tx.delete(quizAttempts).where(eq(quizAttempts.studentId, studentId));
+    });
   } catch (err) {
-    console.error("[teacher/removeStudent]", err);
+    console.error("[teacher/removeStudent] clearing attempts", err);
     return { error: "Could not remove student." };
   }
 
-  // Tombstone auth email so the address can be reused on a fresh invite.
-  // Non-fatal — DB soft-delete already succeeded.
+  // Delete the auth user — cascades profiles -> students -> grants. Removes the
+  // identity entirely and frees the email for reuse.
   const admin = createSupabaseAdminClient();
-  const tombstone = `deleted-${Date.now()}-${studentId.slice(0, 8)}@deleted.invalid`;
-  const { error: renameErr } = await admin.auth.admin.updateUserById(
-    studentId,
-    { email: tombstone, email_confirm: true }
-  );
-  if (renameErr) {
-    console.warn(
-      "[teacher/removeStudent] tombstone email failed:",
-      renameErr.message
-    );
+  const { error: delErr } = await admin.auth.admin.deleteUser(studentId);
+  if (delErr) {
+    console.error("[teacher/removeStudent] deleteUser", delErr.message);
+    return { error: "Could not remove student." };
   }
 
   revalidatePath(`/teacher/classroom/${classroomId}`);
