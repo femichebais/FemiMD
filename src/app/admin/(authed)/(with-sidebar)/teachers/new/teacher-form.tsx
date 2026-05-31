@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { Button, FieldLabel, Input, StageLabel } from "@/components/ui";
+import { StageLabel } from "@/components/ui";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import { createTeacher, type TeacherFormState } from "../actions";
 
 export interface TeacherFormProps {
@@ -26,30 +31,32 @@ export function TeacherForm({ schools }: TeacherFormProps) {
   return (
     <>
       {state.invite && (
-        <div className="mb-12 p-6 bg-accent-soft border-l-2 border-accent rounded-[2px]">
-          <StageLabel className="mb-3 !text-accent">
+        <div className="mb-12 p-6 bg-clinical-primary-soft border border-clinical-border rounded-clinical">
+          <StageLabel className="mb-3">
             Teacher created · share this link
           </StageLabel>
           <p className="font-serif text-[16px] mb-3">
             <strong className="font-medium">{state.invite.name}</strong>{" "}
-            <span className="text-ink-mute">({state.invite.email})</span>
+            <span className="text-clinical-muted-fg">
+              ({state.invite.email})
+            </span>
           </p>
-          <p className="font-mono text-[11px] text-ink-mute tracking-[0.05em] mb-3">
-            They&apos;ll use this one-time link to set their password.
-            Until Resend is wired up (step 15), share it manually.
+          <p className="text-[13px] text-clinical-muted-fg mb-3">
+            They&apos;ll use this one-time link to set their password. We also
+            email it to them automatically.
           </p>
           {state.invite.recoveryUrl ? (
             <div className="flex gap-3 items-stretch">
               <input
                 readOnly
                 value={state.invite.recoveryUrl}
-                className="flex-1 border border-rule-strong bg-surface rounded-[2px] px-3 py-2 font-mono text-[11px] text-ink"
+                className="flex-1 rounded-clinical border border-clinical-border bg-clinical-card px-3 py-2 font-mono text-[11px] text-clinical-fg"
                 onFocus={(e) => e.target.select()}
               />
               <CopyButton text={state.invite.recoveryUrl} />
             </div>
           ) : (
-            <p className="font-mono text-[11px] text-[var(--warning)]">
+            <p className="text-[12px] text-clinical-destructive">
               Could not generate link — trigger a password reset from
               the Supabase auth dashboard.
             </p>
@@ -59,8 +66,8 @@ export function TeacherForm({ schools }: TeacherFormProps) {
 
       <form ref={formRef} action={formAction} className="flex flex-col gap-6">
         <div>
-          <FieldLabel htmlFor="name">Name</FieldLabel>
-          <Input
+          <CFieldLabel htmlFor="name">Name</CFieldLabel>
+          <CInput
             id="name"
             name="name"
             required
@@ -70,8 +77,8 @@ export function TeacherForm({ schools }: TeacherFormProps) {
         </div>
 
         <div>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input
+          <CFieldLabel htmlFor="email">Email</CFieldLabel>
+          <CInput
             id="email"
             name="email"
             type="email"
@@ -82,13 +89,13 @@ export function TeacherForm({ schools }: TeacherFormProps) {
         </div>
 
         <div>
-          <FieldLabel htmlFor="school_id">School</FieldLabel>
+          <CFieldLabel htmlFor="school_id">School</CFieldLabel>
           <select
             id="school_id"
             name="school_id"
             required
             defaultValue={state.schoolId ?? ""}
-            className="w-full border border-rule-strong bg-surface rounded-[2px] px-[14px] py-3 font-serif text-[16px] text-ink focus:outline-none focus:border-accent"
+            className="w-full h-11 rounded-clinical border border-clinical-border bg-clinical-card px-3.5 text-[15px] text-clinical-fg focus:outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary/15 transition-colors"
           >
             <option value="" disabled>
               {schools.length === 0
@@ -105,7 +112,7 @@ export function TeacherForm({ schools }: TeacherFormProps) {
 
         {state.error && (
           <p
-            className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+            className="text-[13px] text-clinical-destructive"
             role="alert"
           >
             {state.error}
@@ -115,13 +122,13 @@ export function TeacherForm({ schools }: TeacherFormProps) {
         <div className="flex items-center justify-between pt-2">
           <a
             href="/admin/teachers"
-            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute hover:text-ink"
+            className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
           >
             ← Back
           </a>
-          <Button type="submit" disabled={isPending || schools.length === 0}>
+          <CButton type="submit" disabled={isPending || schools.length === 0}>
             {isPending ? "Creating…" : "Create teacher"}
-          </Button>
+          </CButton>
         </div>
       </form>
     </>
@@ -130,14 +137,15 @@ export function TeacherForm({ schools }: TeacherFormProps) {
 
 function CopyButton({ text }: { text: string }) {
   return (
-    <button
+    <CButton
       type="button"
+      size="sm"
       onClick={() => {
         navigator.clipboard?.writeText(text).catch(() => {});
       }}
-      className="bg-ink text-paper px-4 py-2 font-sans text-[13px] rounded-[2px] hover:bg-accent transition-colors"
+      className="shrink-0"
     >
       Copy
-    </button>
+    </CButton>
   );
 }

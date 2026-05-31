@@ -57,26 +57,13 @@ export function CaseCard({ caseRow: c, primaryCta }: CaseCardProps) {
           {c.description}
         </p>
       )}
-      <div className="mt-auto flex items-center justify-between gap-3 pt-4">
-        <div className="flex items-center gap-3 text-[11.5px] font-medium text-clinical-muted-fg tabular-nums">
-          <span>
-            {c.stageCount} stage{c.stageCount === 1 ? "" : "s"}
-          </span>
-          <span aria-hidden>·</span>
-          <span>
-            {c.attemptCount} attempt{c.attemptCount === 1 ? "" : "s"}
-          </span>
-        </div>
+      <div className="mt-auto flex items-center justify-end gap-3 pt-4">
         <CLinkButton
           href={`/student/case/${c.id}`}
           size="sm"
           variant={primaryCta && state !== "completed" ? "primary" : "outline"}
         >
-          {state === "completed"
-            ? "Review"
-            : state === "in_progress"
-              ? "Resume"
-              : "Start case"}
+          {state === "in_progress" ? "Resume" : "Start case"}
           <ArrowRight weight="bold" className="h-3.5 w-3.5" />
         </CLinkButton>
       </div>

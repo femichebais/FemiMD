@@ -2,9 +2,9 @@ import { requireRole } from "@/lib/auth/current-user";
 import { listLibraryForTeacher } from "@/lib/queries/library";
 import { LibraryToc } from "@/app/student/(authed)/library/_components/library-toc";
 
-async function safeList() {
+async function safeList(teacherId: string) {
   try {
-    return await listLibraryForTeacher();
+    return await listLibraryForTeacher(teacherId);
   } catch (err) {
     if (process.env.NODE_ENV === "production") {
       console.error("[teacher/library/list]", err);
@@ -18,8 +18,8 @@ export default async function TeacherLibraryLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireRole("teacher");
-  const entries = await safeList();
+  const { user } = await requireRole("teacher");
+  const entries = await safeList(user.id);
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 md:px-12 py-10 md:py-14 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-8 md:gap-20">

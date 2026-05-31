@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button, StageLabel } from "@/components/ui";
+import { StageLabel } from "@/components/ui";
+import { CLinkButton } from "@/components/clinical/primitives";
 import { listCases, type CaseListRow } from "@/lib/queries/cases";
 import { PublishToggle } from "./publish-toggle";
 
@@ -52,9 +53,9 @@ export default async function CasesListPage() {
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
           Authored cases.
         </h1>
-        <Link href="/admin/cases/new">
-          <Button>+ New case</Button>
-        </Link>
+        <CLinkButton href="/admin/cases/new" size="sm">
+          + New case
+        </CLinkButton>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Grouped by student level. A case shows up in every section it&apos;s

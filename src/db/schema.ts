@@ -28,7 +28,10 @@ export const authUsers = authSchema.table("users", {
 // Enums
 // =============================================================================
 
-export const roleEnum = pgEnum("role", ["admin", "teacher", "student"]);
+// 'pending' = self-signup awaiting admin approval. They have a profile + a
+// pending_signups row but no teachers/students row yet, so they can't reach
+// any case content. Middleware shunts them to /pending until approved.
+export const roleEnum = pgEnum("role", ["admin", "teacher", "student", "pending"]);
 export const levelEnum = pgEnum("level", ["middle", "high", "undergrad"]);
 export const stageTypeEnum = pgEnum("stage_type", [
   "history",
@@ -131,9 +134,13 @@ export const students = pgTable(
     id: uuid("id")
       .primaryKey()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    classroomId: uuid("classroom_id")
-      .notNull()
-      .references(() => classrooms.id, { onDelete: "restrict" }),
+    // Nullable so admins can grant direct case access to a student without a
+    // classroom (used in the self-signup approval flow when no classroom is
+    // assigned). Teacher-roster + release queries already filter on classroom
+    // membership, so unclassroomed students simply don't appear there.
+    classroomId: uuid("classroom_id").references(() => classrooms.id, {
+      onDelete: "restrict",
+    }),
     email: text("email").notNull(),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -143,6 +150,26 @@ export const students = pgTable(
   },
   (table) => ({
     classroomIdx: index("students_classroom_idx").on(table.classroomId),
+  })
+);
+
+// Self-signup queue. A row here means: someone created an account on /signup,
+// confirmed their email, and is waiting for admin approval. On approval the
+// row is deleted and a students (or future teachers) row replaces it.
+export const pendingSignups = pgTable(
+  "pending_signups",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    requestedIdx: index("pending_signups_requested_idx").on(table.requestedAt),
   })
 );
 
@@ -601,6 +628,147 @@ export const caseReleases = pgTable(
 );
 
 // =============================================================================
+// Content assignments — admin → teacher (tier 1 of the two-tier gate)
+// =============================================================================
+// Presence = the admin has assigned this content to the classroom, so its
+// teacher can see it. The teacher then decides what to *release* to students
+// (case_releases / quiz_releases / library_releases / resource_releases —
+// tier 2). A teacher sees ONLY assigned content; students see ONLY released.
+
+export const classroomCaseAssignments = pgTable(
+  "classroom_case_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "restrict" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomCaseUq: uniqueIndex(
+      "classroom_case_assignments_classroom_case_uq"
+    ).on(table.classroomId, table.caseId),
+  })
+);
+
+export const classroomQuizAssignments = pgTable(
+  "classroom_quiz_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    quizId: uuid("quiz_id")
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomQuizUq: uniqueIndex(
+      "classroom_quiz_assignments_classroom_quiz_uq"
+    ).on(table.classroomId, table.quizId),
+  })
+);
+
+export const classroomLibraryAssignments = pgTable(
+  "classroom_library_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    libraryPageId: uuid("library_page_id")
+      .notNull()
+      .references(() => libraryPages.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomLibraryUq: uniqueIndex(
+      "classroom_library_assignments_classroom_page_uq"
+    ).on(table.classroomId, table.libraryPageId),
+  })
+);
+
+export const classroomResourceAssignments = pgTable(
+  "classroom_resource_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    resourceId: uuid("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomResourceUq: uniqueIndex(
+      "classroom_resource_assignments_classroom_resource_uq"
+    ).on(table.classroomId, table.resourceId),
+  })
+);
+
+// =============================================================================
+// Library / resource releases — teacher → student (tier 2 for reference content)
+// =============================================================================
+// Mirrors case_releases / quiz_releases: presence = released to the classroom's
+// students. Before this existed, library pages and resources were visible to
+// students purely by grade level; now a teacher must release each one.
+
+export const libraryReleases = pgTable(
+  "library_releases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    libraryPageId: uuid("library_page_id")
+      .notNull()
+      .references(() => libraryPages.id, { onDelete: "cascade" }),
+    releasedAt: timestamp("released_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomLibraryUq: uniqueIndex(
+      "library_releases_classroom_page_uq"
+    ).on(table.classroomId, table.libraryPageId),
+  })
+);
+
+export const resourceReleases = pgTable(
+  "resource_releases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    resourceId: uuid("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    releasedAt: timestamp("released_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    classroomResourceUq: uniqueIndex(
+      "resource_releases_classroom_resource_uq"
+    ).on(table.classroomId, table.resourceId),
+  })
+);
+
+// =============================================================================
 // Type exports — inferred from the table definitions for use in app code.
 // =============================================================================
 
@@ -614,6 +782,8 @@ export type Classroom = typeof classrooms.$inferSelect;
 export type NewClassroom = typeof classrooms.$inferInsert;
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
+export type PendingSignup = typeof pendingSignups.$inferSelect;
+export type NewPendingSignup = typeof pendingSignups.$inferInsert;
 export type Case = typeof cases.$inferSelect;
 export type NewCase = typeof cases.$inferInsert;
 export type CaseLevelConfig = typeof caseLevelConfig.$inferSelect;
@@ -650,3 +820,23 @@ export type QuizRelease = typeof quizReleases.$inferSelect;
 export type NewQuizRelease = typeof quizReleases.$inferInsert;
 export type StudentQuizGrant = typeof studentQuizGrants.$inferSelect;
 export type NewStudentQuizGrant = typeof studentQuizGrants.$inferInsert;
+export type ClassroomCaseAssignment =
+  typeof classroomCaseAssignments.$inferSelect;
+export type NewClassroomCaseAssignment =
+  typeof classroomCaseAssignments.$inferInsert;
+export type ClassroomQuizAssignment =
+  typeof classroomQuizAssignments.$inferSelect;
+export type NewClassroomQuizAssignment =
+  typeof classroomQuizAssignments.$inferInsert;
+export type ClassroomLibraryAssignment =
+  typeof classroomLibraryAssignments.$inferSelect;
+export type NewClassroomLibraryAssignment =
+  typeof classroomLibraryAssignments.$inferInsert;
+export type ClassroomResourceAssignment =
+  typeof classroomResourceAssignments.$inferSelect;
+export type NewClassroomResourceAssignment =
+  typeof classroomResourceAssignments.$inferInsert;
+export type LibraryRelease = typeof libraryReleases.$inferSelect;
+export type NewLibraryRelease = typeof libraryReleases.$inferInsert;
+export type ResourceRelease = typeof resourceReleases.$inferSelect;
+export type NewResourceRelease = typeof resourceReleases.$inferInsert;

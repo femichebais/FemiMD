@@ -8,6 +8,8 @@ const DASHBOARD_FOR: Record<Role, string> = {
   admin: "/admin",
   teacher: "/teacher",
   student: "/student",
+  // Pending users get their own holding screen until admin promotes them.
+  pending: "/pending",
 };
 
 export interface SignInFormState {
@@ -45,6 +47,13 @@ async function signInWithRoles(
   const role = (data.user.app_metadata as Record<string, unknown>)?.role as
     | Role
     | undefined;
+
+  // A self-signup awaiting admin approval has a valid login but role 'pending'.
+  // Send them to their holding pen instead of the "no access here" error —
+  // this is the path a re-created account (after an admin delete) lands on.
+  if (role === "pending") {
+    redirect("/pending");
+  }
 
   if (!role || !expectedRoles.includes(role)) {
     // Drop the half-valid session — we don't want a teacher-cookie hanging

@@ -173,69 +173,6 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <CEyebrow className="mb-3 mt-10">Completed cases</CEyebrow>
-      {attempts.length === 0 ? (
-        <p className="text-[15px] text-clinical-muted-fg mb-14">
-          No completed cases yet.
-        </p>
-      ) : (
-        <ul className="mb-14">
-          {attempts.map((a) => (
-            <li
-              key={a.id}
-              className="border border-clinical-border rounded-clinical p-5 mb-3 bg-clinical-card"
-            >
-              <div className="flex items-baseline justify-between mb-3">
-                <h2 className="font-serif text-[18px] text-clinical-fg">
-                  {a.caseTitle}
-                </h2>
-                <span className="text-[11px] font-mono text-clinical-muted-fg">
-                  {formatDateTime(a.startedAt)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-clinical-muted-fg mb-3">
-                <div className="flex items-center gap-6">
-                  {a.totalScore !== null && (
-                    <span>
-                      Score{" "}
-                      <strong className="text-clinical-primary text-[13px]">
-                        {a.totalScore}
-                      </strong>
-                    </span>
-                  )}
-                </div>
-                <Link
-                  href={`/teacher/classroom/${classroomId}/student/${studentId}/attempt/${a.id}`}
-                  className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg hover:text-clinical-primary"
-                >
-                  View picks →
-                </Link>
-              </div>
-              {a.stages.length > 0 && (
-                <ul className="border-t border-clinical-border/60 pt-3">
-                  {a.stages.map((s) => (
-                    <li
-                      key={s.stageId}
-                      className="grid grid-cols-[1fr_60px] items-baseline gap-4 py-2 text-[14px]"
-                    >
-                      <span className="font-serif text-clinical-fg truncate">
-                        <span className="text-[11px] font-mono text-clinical-muted-fg mr-2">
-                          {TYPE_LABEL[s.type] ?? s.type}
-                        </span>
-                        {s.prompt}
-                      </span>
-                      <span className="font-mono text-[12px] text-clinical-muted-fg justify-self-end">
-                        +{s.earnedScore}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
       <CEyebrow className="mb-3 mt-10">Case analytics</CEyebrow>
       {attempts.length === 0 ? (
         <p className="text-[15px] text-clinical-muted-fg mb-14">
@@ -293,9 +230,132 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
         </div>
       )}
 
-      <CEyebrow className="mb-3 mt-10">Quiz attempts</CEyebrow>
+      <CEyebrow className="mb-3 mt-10">Quiz analytics</CEyebrow>
       {quizAttempts.length === 0 ? (
         <p className="text-[15px] text-clinical-muted-fg mb-14">
+          No quizzes taken yet.
+        </p>
+      ) : (
+        <div className="mb-14">
+          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
+              Quiz
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
+              Attempts
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
+              Best
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
+              Avg
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
+              Latest
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
+              Last taken
+            </span>
+          </div>
+          <ul>
+            {aggregateQuizAttempts(quizAttempts).map((g) => (
+              <li
+                key={g.key}
+                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
+              >
+                <span className="font-serif text-[16px] text-clinical-fg truncate">
+                  {g.caseTitle}
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.attemptCount}
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
+                  {g.bestPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
+                  {g.avgPct}%
+                </span>
+                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
+                  {g.latestPct}%
+                </span>
+                <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
+                  {formatShortDate(g.latestAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <CEyebrow className="mb-3 mt-10">Case attempts</CEyebrow>
+      {attempts.length === 0 ? (
+        <p className="text-[15px] text-clinical-muted-fg mb-14">
+          No completed cases yet.
+        </p>
+      ) : (
+        <ul className="mb-14">
+          {attempts.map((a) => (
+            <li
+              key={a.id}
+              className="border border-clinical-border rounded-clinical p-5 mb-3 bg-clinical-card"
+            >
+              <div className="flex items-baseline justify-between mb-3">
+                <h2 className="font-serif text-[18px] text-clinical-fg">
+                  {a.caseTitle}
+                </h2>
+                <span className="text-[11px] font-mono text-clinical-muted-fg">
+                  {formatDateTime(a.startedAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-6 font-mono text-[11px] text-clinical-muted-fg mb-3">
+                <div className="flex items-center gap-6">
+                  {a.totalScore !== null && (
+                    <span>
+                      Score{" "}
+                      <strong className="text-clinical-primary text-[13px]">
+                        {a.caseMaxPossible > 0
+                          ? Math.round((a.totalScore / a.caseMaxPossible) * 100)
+                          : 0}
+                        %
+                      </strong>
+                    </span>
+                  )}
+                </div>
+                <Link
+                  href={`/teacher/classroom/${classroomId}/student/${studentId}/attempt/${a.id}`}
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg hover:text-clinical-primary"
+                >
+                  View picks →
+                </Link>
+              </div>
+              {a.stages.length > 0 && (
+                <ul className="border-t border-clinical-border/60 pt-3">
+                  {a.stages.map((s) => (
+                    <li
+                      key={s.stageId}
+                      className="grid grid-cols-[1fr_60px] items-baseline gap-4 py-2 text-[14px]"
+                    >
+                      <span className="font-serif text-clinical-fg truncate">
+                        <span className="text-[11px] font-mono text-clinical-muted-fg mr-2">
+                          {TYPE_LABEL[s.type] ?? s.type}
+                        </span>
+                        {s.prompt}
+                      </span>
+                      <span className="font-mono text-[12px] text-clinical-muted-fg justify-self-end">
+                        +{s.earnedScore}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <CEyebrow className="mb-3 mt-10">Quiz attempts</CEyebrow>
+      {quizAttempts.length === 0 ? (
+        <p className="text-[15px] text-clinical-muted-fg">
           No quizzes taken yet.
         </p>
       ) : (
@@ -349,63 +409,6 @@ export default async function StudentDrillDownPage({ params }: PageProps) {
             })}
           </ul>
         </div>
-      )}
-
-      <CEyebrow className="mb-3 mt-10">Quiz analytics</CEyebrow>
-      {quizAttempts.length === 0 ? (
-        <p className="text-[15px] text-clinical-muted-fg">
-          No quizzes taken yet.
-        </p>
-      ) : (
-        <>
-          <div className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 pb-3 border-b border-clinical-border">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg">
-              Quiz
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
-              Attempts
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
-              Best
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
-              Avg
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
-              Latest
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-clinical-muted-fg justify-self-end">
-              Last taken
-            </span>
-          </div>
-          <ul>
-            {aggregateQuizAttempts(quizAttempts).map((g) => (
-              <li
-                key={g.key}
-                className="grid grid-cols-[1fr_90px_80px_80px_80px_110px] items-baseline gap-6 py-3 border-b border-clinical-border/60"
-              >
-                <span className="font-serif text-[16px] text-clinical-fg truncate">
-                  {g.caseTitle}
-                </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
-                  {g.attemptCount}
-                </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end">
-                  {g.bestPct}%
-                </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
-                  {g.avgPct}%
-                </span>
-                <span className="font-mono text-[12px] tabular-nums text-right justify-self-end text-clinical-muted-fg">
-                  {g.latestPct}%
-                </span>
-                <span className="text-[11px] font-mono text-clinical-muted-fg justify-self-end">
-                  {formatShortDate(g.latestAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
       )}
     </main>
   );

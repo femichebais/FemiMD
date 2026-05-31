@@ -2,7 +2,8 @@ import Link from "next/link";
 import { isNull, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { teachers, schools } from "@/db/schema";
-import { Button, StageLabel } from "@/components/ui";
+import { StageLabel } from "@/components/ui";
+import { CLinkButton } from "@/components/clinical/primitives";
 import { DeleteTeacherButton } from "./delete-teacher-button";
 
 async function listTeachers() {
@@ -37,9 +38,9 @@ export default async function TeachersPage() {
         <h1 className="font-serif text-[34px] leading-[1.15] tracking-[-0.01em]">
           Teachers on the platform.
         </h1>
-        <Link href="/admin/teachers/new">
-          <Button>+ Invite teacher</Button>
-        </Link>
+        <CLinkButton href="/admin/teachers/new" size="sm">
+          + Invite teacher
+        </CLinkButton>
       </div>
       <p className="font-serif italic text-[16px] text-ink-mute mb-12">
         Each teacher belongs to one school and can run many classrooms.

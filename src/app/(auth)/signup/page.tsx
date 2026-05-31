@@ -1,46 +1,37 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LoginForm } from "@/app/(auth)/login-form";
-import { studentTeacherSignIn } from "@/app/actions/auth";
 import { CCard, CEyebrow } from "@/components/clinical/primitives";
+import { SignupForm } from "./signup-form";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Create account" };
 
-type SearchParams = { next?: string | string[] };
-
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const params = await searchParams;
-  const next = typeof params.next === "string" ? params.next : undefined;
-
+export default function SignupPage() {
   return (
     <>
       <div className="text-center mb-8">
         <CEyebrow className="mb-3 justify-center inline-block">
-          Student or teacher
+          New student
         </CEyebrow>
         <h1 className="font-serif text-[36px] md:text-[40px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-2">
-          Welcome back.
+          Request access.
         </h1>
         <p className="text-[15.5px] text-clinical-muted-fg">
-          Use the email your school or teacher has on file.
+          Create an account and we&apos;ll review it shortly. You&apos;ll get an
+          email when you&apos;re approved.
         </p>
       </div>
 
       <CCard className="p-6 md:p-7">
-        <LoginForm action={studentTeacherSignIn} next={next} />
+        <SignupForm />
       </CCard>
 
       <p className="mt-6 text-center text-[13.5px] text-clinical-muted-fg">
-        New here?{" "}
+        Already have an account?{" "}
         <Link
-          href="/signup"
+          href="/login"
           className="font-medium text-clinical-primary hover:text-clinical-fg transition-colors"
         >
-          Create an account
+          Sign in
         </Link>
       </p>
     </>

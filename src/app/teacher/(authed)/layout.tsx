@@ -42,6 +42,7 @@ export default async function TeacherLayout({
         links={[
           { label: "Classrooms", href: "/teacher" },
           { label: "Clinical Library", href: "/teacher/library" },
+          { label: "Resources", href: "/teacher/resources" },
         ]}
         userName={displayName}
         userEmail={user.email}

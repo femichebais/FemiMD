@@ -1,16 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { students } from "@/db/schema";
+import { students, caseAttempts, quizAttempts } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// Soft-delete a student: drops them off classroom rosters + locks them out
-// of the platform, but keeps their case/quiz attempts so teacher analytics
-// stay consistent. Auth email is tombstoned so the address can be reused if
-// the admin invites a fresh account later.
+// Hard-delete a student: remove the auth user and EVERY trace of them —
+// profile, students row, case/quiz attempt history, and any admin grants.
+// Nothing survives, so the email is immediately free to reuse.
+//
+// Order matters because of the FKs in schema.ts:
+//   - case_attempts.student_id / quiz_attempts.student_id are onDelete:restrict,
+//     so they'd block the cascade. We delete them first (stage_attempts cascade
+//     off case_attempts).
+//   - Deleting the auth.users row then cascades profiles -> students ->
+//     student_case_grants / student_quiz_grants (all onDelete:cascade).
 
 export interface DeleteStudentState {
   error?: string;
@@ -26,28 +32,24 @@ export async function deleteStudent(
   if (!id) return { error: "Missing student id." };
 
   try {
-    await db
-      .update(students)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(students.id, id), isNull(students.deletedAt)));
+    // 1. Clear the restrict-FK blockers (attempt history) so the auth-user
+    //    delete can cascade through the students row.
+    await db.transaction(async (tx) => {
+      await tx.delete(caseAttempts).where(eq(caseAttempts.studentId, id));
+      await tx.delete(quizAttempts).where(eq(quizAttempts.studentId, id));
+    });
   } catch (err) {
-    console.error("[admin/students/deleteStudent]", err);
+    console.error("[admin/students/deleteStudent] clearing attempts", err);
     return { error: "Could not delete student." };
   }
 
-  // Rotate auth email to .invalid so the address can be reused. Non-fatal
-  // if it errors — the DB delete already succeeded.
+  // 2. Delete the auth user — cascades profiles -> students -> grants. This is
+  //    the step that actually removes the identity and frees the email.
   const admin = createSupabaseAdminClient();
-  const tombstone = `deleted-${Date.now()}-${id.slice(0, 8)}@deleted.invalid`;
-  const { error: renameErr } = await admin.auth.admin.updateUserById(id, {
-    email: tombstone,
-    email_confirm: true,
-  });
-  if (renameErr) {
-    console.warn(
-      "[admin/students/deleteStudent] tombstone email failed:",
-      renameErr.message
-    );
+  const { error: delErr } = await admin.auth.admin.deleteUser(id);
+  if (delErr) {
+    console.error("[admin/students/deleteStudent] deleteUser", delErr.message);
+    return { error: "Could not delete student." };
   }
 
   revalidatePath("/admin/students");

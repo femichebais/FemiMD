@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import {
   createResource,
   type ResourceFormState,
@@ -39,12 +43,12 @@ export function CreateResourceForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="border border-rule-strong bg-surface rounded-[2px] p-6 mb-12"
+      className="border border-clinical-border bg-clinical-card rounded-clinical shadow-clinical-card p-6 mb-12"
     >
       <div className="grid grid-cols-[1fr_140px] gap-4 mb-4">
         <div>
-          <FieldLabel htmlFor="r-title">Title</FieldLabel>
-          <Input
+          <CFieldLabel htmlFor="r-title">Title</CFieldLabel>
+          <CInput
             id="r-title"
             name="title"
             required
@@ -53,13 +57,13 @@ export function CreateResourceForm() {
           />
         </div>
         <div>
-          <FieldLabel htmlFor="r-type">Type</FieldLabel>
+          <CFieldLabel htmlFor="r-type">Type</CFieldLabel>
           <select
             id="r-type"
             name="type"
             value={type}
             onChange={(e) => setType(e.target.value as ResourceType)}
-            className="w-full border border-rule-strong bg-surface rounded-[2px] px-[14px] py-3 font-sans text-[14px] focus:outline-none focus:border-accent"
+            className="w-full h-11 rounded-clinical border border-clinical-border bg-clinical-card px-3.5 text-[15px] text-clinical-fg focus:outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary/15 transition-colors"
           >
             <option value="link">External link</option>
             <option value="pdf">PDF file</option>
@@ -70,19 +74,19 @@ export function CreateResourceForm() {
 
       {type === "link" ? (
         <div className="mb-4">
-          <FieldLabel htmlFor="r-url">URL</FieldLabel>
-          <input
+          <CFieldLabel htmlFor="r-url">URL</CFieldLabel>
+          <CInput
             id="r-url"
             name="url"
             type="url"
             placeholder="https://…"
             defaultValue={state.values?.url ?? ""}
-            className="w-full border border-rule-strong bg-surface rounded-[2px] px-[14px] py-3 font-mono text-[13px] focus:outline-none focus:border-accent"
+            className="font-mono text-[13px]"
           />
         </div>
       ) : (
         <div className="mb-4">
-          <FieldLabel htmlFor="r-file">File</FieldLabel>
+          <CFieldLabel htmlFor="r-file">File</CFieldLabel>
           <input
             id="r-file"
             name="file"
@@ -92,7 +96,7 @@ export function CreateResourceForm() {
               const f = e.target.files?.[0];
               setFilename(f?.name ?? "");
             }}
-            className="block font-mono text-[12px] text-ink-mute"
+            className="block text-[13px] text-clinical-muted-fg"
           />
           {filename && (
             <input
@@ -101,14 +105,14 @@ export function CreateResourceForm() {
               value={filename}
             />
           )}
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-fade">
+          <p className="mt-2 text-[12px] text-clinical-muted-fg">
             Stored in Supabase. Up to 25MB.
           </p>
         </div>
       )}
 
       <div className="mb-4">
-        <FieldLabel>Levels</FieldLabel>
+        <CFieldLabel>Levels</CFieldLabel>
         <div className="flex gap-4">
           {LEVELS.map((l) => (
             <label
@@ -122,7 +126,7 @@ export function CreateResourceForm() {
                 defaultChecked={
                   state.values?.levels?.includes(l.value) ?? false
                 }
-                className="accent-accent w-[14px] h-[14px]"
+                className="accent-clinical-primary w-[14px] h-[14px]"
               />
               {l.label}
             </label>
@@ -133,16 +137,16 @@ export function CreateResourceForm() {
       {state.error && (
         <p
           role="alert"
-          className="mb-4 font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+          className="mb-4 text-[13px] text-clinical-destructive"
         >
           {state.error}
         </p>
       )}
 
-      <div className="flex justify-end pt-4 border-t border-rule">
-        <Button type="submit" disabled={isPending}>
+      <div className="flex justify-end pt-4 border-t border-clinical-border">
+        <CButton type="submit" disabled={isPending}>
           {isPending ? "Adding…" : "Add resource"}
-        </Button>
+        </CButton>
       </div>
     </form>
   );

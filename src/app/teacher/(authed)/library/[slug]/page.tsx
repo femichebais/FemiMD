@@ -10,9 +10,9 @@ interface PageProps {
 
 export default async function TeacherArticlePage({ params }: PageProps) {
   const { slug } = await params;
-  await requireRole("teacher");
+  const { user } = await requireRole("teacher");
 
-  const result = await getLibraryPageForTeacher(slug);
+  const result = await getLibraryPageForTeacher(slug, user.id);
   if (!result) notFound();
   const { page, sections } = result;
 

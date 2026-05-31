@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { Button, FieldLabel, Input } from "@/components/ui";
+import {
+  CButton,
+  CFieldLabel,
+  CInput,
+} from "@/components/clinical/primitives";
 import { createSchool, type SchoolFormState } from "./actions";
 
 export function CreateSchoolForm() {
@@ -22,11 +26,11 @@ export function CreateSchoolForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="flex flex-col gap-4 mb-12 pb-12 border-b border-rule"
+      className="flex flex-col gap-4 mb-12 pb-12 border-b border-clinical-border"
     >
-      <FieldLabel htmlFor="school-name">New school</FieldLabel>
+      <CFieldLabel htmlFor="school-name">New school</CFieldLabel>
       <div className="flex gap-3">
-        <Input
+        <CInput
           id="school-name"
           name="name"
           placeholder="School name"
@@ -35,13 +39,13 @@ export function CreateSchoolForm() {
           maxLength={200}
           className="flex-1"
         />
-        <Button type="submit" disabled={isPending}>
+        <CButton type="submit" disabled={isPending} className="shrink-0">
           {isPending ? "Adding…" : "Add school"}
-        </Button>
+        </CButton>
       </div>
       {state.error && (
         <p
-          className="font-mono text-[11px] tracking-[0.05em] text-[var(--warning)]"
+          className="text-[13px] text-clinical-destructive"
           role="alert"
         >
           {state.error}

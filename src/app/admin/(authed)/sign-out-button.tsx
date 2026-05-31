@@ -9,7 +9,7 @@ export function SignOutButton() {
     <form action={signOutAction}>
       <button
         type="submit"
-        className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-fade hover:text-ink transition-colors"
+        className="text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
       >
         Sign out
       </button>

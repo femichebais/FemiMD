@@ -5,10 +5,10 @@ import { listLibraryForTeacher } from "@/lib/queries/library";
 import { CCard, CEyebrow } from "@/components/clinical/primitives";
 
 export default async function TeacherLibraryIndexPage() {
-  await requireRole("teacher");
+  const { user } = await requireRole("teacher");
   let entries: Awaited<ReturnType<typeof listLibraryForTeacher>> = [];
   try {
-    entries = await listLibraryForTeacher();
+    entries = await listLibraryForTeacher(user.id);
   } catch (err) {
     if (process.env.NODE_ENV === "production") {
       console.error("[teacher/library/index]", err);
@@ -22,8 +22,8 @@ export default async function TeacherLibraryIndexPage() {
         Reference, on hand.
       </h1>
       <p className="text-[17px] leading-[1.55] text-clinical-muted-fg max-w-prose mb-10">
-        Articles your students read alongside the cases. You can see every
-        published article — student access is gated by classroom level.
+        Articles your students read alongside the cases. Scoped to your
+        classroom levels — the same articles your students can see.
       </p>
 
       {entries.length === 0 ? (

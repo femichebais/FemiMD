@@ -1,8 +1,10 @@
-import { eq, and, isNull, asc, sql } from "drizzle-orm";
+import { eq, and, isNull, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   libraryPages,
   libraryPageLevels,
+  libraryReleases,
+  classroomLibraryAssignments,
   libraryPageSections,
   classrooms,
   students,
@@ -33,7 +35,9 @@ export interface LibraryTocEntry {
   eyebrow: string | null;
 }
 
-// Pages a student can see: not deleted, tagged for their classroom's level.
+// Pages a student can see: not deleted and released to their classroom
+// (library_releases). Reference content is now gated by teacher release, the
+// same as cases/quizzes — no longer auto-visible by grade level.
 export async function listLibraryForStudent(
   studentId: string
 ): Promise<LibraryTocEntry[]> {
@@ -46,15 +50,15 @@ export async function listLibraryForStudent(
     })
     .from(libraryPages)
     .innerJoin(
-      libraryPageLevels,
-      eq(libraryPageLevels.libraryPageId, libraryPages.id)
+      libraryReleases,
+      eq(libraryReleases.libraryPageId, libraryPages.id)
     )
     .innerJoin(students, eq(students.id, studentId))
     .innerJoin(
       classrooms,
       and(
         eq(classrooms.id, students.classroomId),
-        eq(classrooms.level, libraryPageLevels.level)
+        eq(classrooms.id, libraryReleases.classroomId)
       )
     )
     .where(
@@ -63,8 +67,8 @@ export async function listLibraryForStudent(
     .orderBy(asc(libraryPages.title));
 }
 
-// Single page lookup with the same level scoping. Returns null if the
-// student can't access it.
+// Single page lookup with the same release scoping. Returns null if the
+// page isn't released to the student's classroom.
 export async function getLibraryPageForStudent(
   studentId: string,
   slug: string
@@ -73,15 +77,15 @@ export async function getLibraryPageForStudent(
     .select({ page: libraryPages })
     .from(libraryPages)
     .innerJoin(
-      libraryPageLevels,
-      eq(libraryPageLevels.libraryPageId, libraryPages.id)
+      libraryReleases,
+      eq(libraryReleases.libraryPageId, libraryPages.id)
     )
     .innerJoin(students, eq(students.id, studentId))
     .innerJoin(
       classrooms,
       and(
         eq(classrooms.id, students.classroomId),
-        eq(classrooms.level, libraryPageLevels.level)
+        eq(classrooms.id, libraryReleases.classroomId)
       )
     )
     .where(
@@ -99,11 +103,34 @@ export async function getLibraryPageForStudent(
 }
 
 // =============================================================================
-// Teacher queries — teachers see every non-deleted library page regardless
-// of level. They review across cohorts and benefit from full visibility.
+// Teacher queries — scoped to the pages an admin has assigned to one of the
+// teacher's classrooms (classroom_library_assignments). A teacher running
+// multiple classrooms sees the union of their assignments.
 // =============================================================================
 
-export async function listLibraryForTeacher(): Promise<LibraryTocEntry[]> {
+// Distinct library page ids assigned to any of this teacher's (non-deleted)
+// classrooms. Shared by the list + single-page teacher queries.
+async function assignedLibraryPageIds(teacherId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ pageId: classroomLibraryAssignments.libraryPageId })
+    .from(classroomLibraryAssignments)
+    .innerJoin(
+      classrooms,
+      and(
+        eq(classrooms.id, classroomLibraryAssignments.classroomId),
+        eq(classrooms.teacherId, teacherId),
+        isNull(classrooms.deletedAt)
+      )
+    );
+  return rows.map((r) => r.pageId);
+}
+
+export async function listLibraryForTeacher(
+  teacherId: string
+): Promise<LibraryTocEntry[]> {
+  const ids = await assignedLibraryPageIds(teacherId);
+  if (ids.length === 0) return [];
+
   return await db
     .select({
       id: libraryPages.id,
@@ -112,23 +139,31 @@ export async function listLibraryForTeacher(): Promise<LibraryTocEntry[]> {
       eyebrow: libraryPages.eyebrow,
     })
     .from(libraryPages)
-    .where(isNull(libraryPages.deletedAt))
+    .where(and(isNull(libraryPages.deletedAt), inArray(libraryPages.id, ids)))
     .orderBy(asc(libraryPages.title));
 }
 
 export async function getLibraryPageForTeacher(
-  slug: string
+  slug: string,
+  teacherId: string
 ): Promise<LibraryPageWithSections | null> {
-  const [page] = await db
-    .select()
+  const ids = await assignedLibraryPageIds(teacherId);
+  if (ids.length === 0) return null;
+
+  const [row] = await db
+    .select({ page: libraryPages })
     .from(libraryPages)
     .where(
-      and(eq(libraryPages.diagnosisSlug, slug), isNull(libraryPages.deletedAt))
+      and(
+        eq(libraryPages.diagnosisSlug, slug),
+        isNull(libraryPages.deletedAt),
+        inArray(libraryPages.id, ids)
+      )
     )
     .limit(1);
-  if (!page) return null;
-  const sections = await getSectionsForPage(page.id);
-  return { page, sections };
+  if (!row?.page) return null;
+  const sections = await getSectionsForPage(row.page.id);
+  return { page: row.page, sections };
 }
 
 // =============================================================================

@@ -4,7 +4,6 @@ import {
   classrooms,
   students,
   cases,
-  caseLevelConfig,
   caseReleases,
   caseAttempts,
   stageAttempts,
@@ -15,6 +14,14 @@ import {
   quizQuestions,
   quizChoices,
   quizReleases,
+  libraryPages,
+  libraryReleases,
+  resources,
+  resourceReleases,
+  classroomCaseAssignments,
+  classroomQuizAssignments,
+  classroomLibraryAssignments,
+  classroomResourceAssignments,
   type Case,
   type Choice,
   type Stage,
@@ -81,21 +88,36 @@ export interface ClassroomDetail {
     quizCompletedCount: number; // distinct released quizzes the student attempted
     quizAvgPct: number | null; // avg score/question_count percent across attempts
   }>;
-  // All cases at this level — for the teacher to toggle release
+  // Cases the admin assigned to this classroom — for the teacher to toggle
+  // release to students.
   availableCases: Array<{
     id: string;
     title: string;
     isReleased: boolean;
     releasedAt: Date | null;
   }>;
-  // All quizzes on the platform (case-attached + standalone) — for the
-  // teacher to toggle quiz releases independently of case releases.
+  // Quizzes the admin assigned to this classroom — released to students
+  // independently of cases.
   availableQuizzes: Array<{
     id: string;
     title: string;
     topic: string | null;
     scope: "pre" | "post" | null;
     caseTitle: string | null;
+    isReleased: boolean;
+  }>;
+  // Library pages the admin assigned to this classroom — for the teacher to
+  // toggle release to students.
+  availableLibrary: Array<{
+    id: string;
+    title: string;
+    isReleased: boolean;
+  }>;
+  // Resources the admin assigned to this classroom — for the teacher to toggle
+  // release to students.
+  availableResources: Array<{
+    id: string;
+    title: string;
     isReleased: boolean;
   }>;
   topline: {
@@ -148,7 +170,7 @@ export async function getClassroomDetail(
 
   const studentIds = baseRoster.map((r) => r.id);
 
-  // All quizzes — case-attached + standalone — with this classroom's
+  // Quizzes the admin assigned to this classroom — with this classroom's
   // release state. Teachers release quizzes independently of case releases.
   const availableQuizzes = await db
     .select({
@@ -164,11 +186,18 @@ export async function getClassroomDetail(
       )`,
     })
     .from(quizzes)
+    .innerJoin(
+      classroomQuizAssignments,
+      and(
+        eq(classroomQuizAssignments.quizId, quizzes.id),
+        eq(classroomQuizAssignments.classroomId, classroomId)
+      )
+    )
     .leftJoin(cases, eq(cases.id, quizzes.caseId))
     .where(isNull(quizzes.deletedAt))
     .orderBy(asc(quizzes.title));
 
-  // Cases at this level + release status
+  // Cases the admin assigned to this classroom + release status
   const availableCases = await db
     .select({
       id: cases.id,
@@ -186,16 +215,65 @@ export async function getClassroomDetail(
       )`,
     })
     .from(cases)
-    .innerJoin(caseLevelConfig, eq(caseLevelConfig.caseId, cases.id))
+    .innerJoin(
+      classroomCaseAssignments,
+      and(
+        eq(classroomCaseAssignments.caseId, cases.id),
+        eq(classroomCaseAssignments.classroomId, classroomId)
+      )
+    )
     .where(
       and(
-        eq(caseLevelConfig.level, classroom.level),
         isNull(cases.deletedAt),
         // Teachers only see published cases — drafts are admin-only.
         isNotNull(cases.publishedAt)
       )
     )
     .orderBy(asc(cases.title));
+
+  // Library pages the admin assigned to this classroom + release status
+  const availableLibrary = await db
+    .select({
+      id: libraryPages.id,
+      title: libraryPages.title,
+      isReleased: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${libraryReleases}
+        WHERE ${libraryReleases.classroomId} = ${classroomId}
+          AND ${libraryReleases.libraryPageId} = ${libraryPages.id}
+      )`,
+    })
+    .from(libraryPages)
+    .innerJoin(
+      classroomLibraryAssignments,
+      and(
+        eq(classroomLibraryAssignments.libraryPageId, libraryPages.id),
+        eq(classroomLibraryAssignments.classroomId, classroomId)
+      )
+    )
+    .where(isNull(libraryPages.deletedAt))
+    .orderBy(asc(libraryPages.title));
+
+  // Resources the admin assigned to this classroom + release status
+  const availableResources = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      isReleased: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${resourceReleases}
+        WHERE ${resourceReleases.classroomId} = ${classroomId}
+          AND ${resourceReleases.resourceId} = ${resources.id}
+      )`,
+    })
+    .from(resources)
+    .innerJoin(
+      classroomResourceAssignments,
+      and(
+        eq(classroomResourceAssignments.resourceId, resources.id),
+        eq(classroomResourceAssignments.classroomId, classroomId)
+      )
+    )
+    .where(isNull(resources.deletedAt))
+    .orderBy(asc(resources.title));
 
   const releasedCaseIds = availableCases
     .filter((c) => c.isReleased)
@@ -204,7 +282,9 @@ export async function getClassroomDetail(
     .filter((q) => q.isReleased)
     .map((q) => q.id);
 
-  // Per-student case aggregates — unfiltered counts. Empty if no students.
+  // Per-student case aggregates — completed attempts only, so the roster's
+  // "Case attempts" total matches the per-student drill-down, which hides
+  // in-progress/abandoned runs. Empty if no students.
   const caseAggRows =
     studentIds.length === 0
       ? []
@@ -214,7 +294,12 @@ export async function getClassroomDetail(
             attemptCount: sql<number>`COUNT(*)::int`,
           })
           .from(caseAttempts)
-          .where(inArray(caseAttempts.studentId, studentIds))
+          .where(
+            and(
+              inArray(caseAttempts.studentId, studentIds),
+              isNotNull(caseAttempts.completedAt)
+            )
+          )
           .groupBy(caseAttempts.studentId);
 
   // Per-attempt rows for completed case attempts — needed to compute avg %.
@@ -420,6 +505,8 @@ export async function getClassroomDetail(
     roster,
     availableCases,
     availableQuizzes,
+    availableLibrary,
+    availableResources,
     topline: {
       studentCount,
       releasedCaseCount,
@@ -486,7 +573,10 @@ export async function getStudentDetailForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
       classroomLevel: classrooms.level,
     })
@@ -692,7 +782,10 @@ export async function getCaseAttemptForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
     })
     .from(students)
@@ -857,7 +950,10 @@ export async function getQuizAttemptForTeacher(
       id: students.id,
       name: students.name,
       email: students.email,
-      classroomId: students.classroomId,
+      // From the inner-joined classroom row — guaranteed non-null and equal
+      // to students.classroomId by the join predicate. Reading classrooms.id
+      // is the same value but typed as string (not string | null).
+      classroomId: classrooms.id,
       classroomName: classrooms.name,
     })
     .from(students)
