@@ -64,9 +64,7 @@ export default async function StudentDashboard() {
             Solve the case.
           </h1>
           <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-7 max-w-xl">
-            Real patients. Real symptoms. Real decisions — minus the lecture.
-            Step into the clinic, ask the questions, run the exam, and make
-            the call.
+            Meet patients, gather clues, perform the exam, and make the diagnosis.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <CLinkButton href="/student/cases" size="lg" variant="primary">
@@ -97,11 +95,10 @@ export default async function StudentDashboard() {
         <div className="relative max-w-2xl">
           <CEyebrow className="mb-4">Knowledge check</CEyebrow>
           <h1 className="font-serif text-[44px] md:text-[56px] leading-[1.02] tracking-[-0.025em] text-clinical-fg font-medium mb-5">
-            Take a quiz.
+            Test your clinical instincts.
           </h1>
           <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-7 max-w-xl">
-            A few questions, randomly drawn. Retakes are fresh every time —
-            attempts are kept separately so you can see how you improve.
+            Review symptoms, spot patterns, and choose the most likely diagnosis.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <CLinkButton
