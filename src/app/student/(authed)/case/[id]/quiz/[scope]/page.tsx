@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { cases } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCaseForStudent } from "@/lib/queries/student-cases";
+import { accessibleQuizIds } from "@/lib/queries/student-quizzes";
 import { pickRandomQuestions, ensureCaseQuiz } from "@/lib/queries/quiz";
 import { QuizPlayer } from "./_components/quiz-player";
 import { CEyebrow } from "@/components/clinical/primitives";
@@ -41,6 +42,36 @@ export default async function StudentQuizPage({ params }: PageProps) {
   if (!caseRow) notFound();
 
   const quizId = await ensureCaseQuiz(id, scope);
+
+  // Release gate: the case being accessible does NOT imply its quiz is
+  // released. Teachers/admins release each quiz separately (quiz_releases),
+  // so check the quiz itself before letting the student take it — otherwise
+  // they'd reach a quiz that the submit action would reject anyway.
+  const accessibleQuizzes = await accessibleQuizIds(user.id);
+  if (!accessibleQuizzes.has(quizId)) {
+    return (
+      <main className="px-5 md:px-8 py-10 md:py-14 pb-20">
+        <div className="max-w-2xl mx-auto">
+          <CEyebrow className="mb-3">Quiz · {caseRow.title}</CEyebrow>
+          <h1 className="font-serif text-[36px] md:text-[44px] leading-[1.05] tracking-[-0.025em] text-clinical-fg font-medium mb-3">
+            Not released yet.
+          </h1>
+          <p className="text-[17px] leading-[1.55] text-clinical-muted-fg mb-10">
+            This quiz hasn&apos;t been released by your teacher yet. Check back
+            later.
+          </p>
+          <Link
+            href={`/student/case/${id}`}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-clinical-muted-fg hover:text-clinical-fg transition-colors"
+          >
+            <ArrowLeft weight="bold" className="h-3.5 w-3.5" />
+            Back to case
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   const questions = await pickRandomQuestions(
     quizId,
     caseRow.quizQuestionCount
