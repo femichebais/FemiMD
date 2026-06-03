@@ -10,6 +10,8 @@ import { db } from "@/db/client";
 import { caseAttempts } from "@/db/schema";
 import { requireRole } from "@/lib/auth/current-user";
 import { getAttemptFeedback } from "@/lib/queries/feedback";
+import { accessibleQuizIds } from "@/lib/queries/student-quizzes";
+import { ensureCaseQuiz } from "@/lib/queries/quiz";
 import { StageBreakdownItem } from "./_components/stage-breakdown";
 import { ArticleBody } from "@/components/markdown/article";
 import {
@@ -65,6 +67,13 @@ export default async function FeedbackPage({
   if (!data) notFound();
 
   const { case: caseData, attempt, breakdown } = data;
+
+  // Only surface the post-quiz CTA if that quiz is actually released to the
+  // student. The case being accessible doesn't release its quizzes — those
+  // are released separately, so a link here would otherwise dead-end at the
+  // quiz's "Not released yet" gate.
+  const postQuizId = await ensureCaseQuiz(caseId, "post");
+  const postQuizReleased = (await accessibleQuizIds(user.id)).has(postQuizId);
 
   // Compute the totals shown in the score banner.
   const earned =
@@ -157,6 +166,7 @@ export default async function FeedbackPage({
           );
         })}
 
+        {(caseData.linkedDiagnosisSlug || postQuizReleased) && (
         <section className="mt-16 pt-10 border-t border-clinical-border grid gap-3 md:grid-cols-2">
           {caseData.linkedDiagnosisSlug && (
             <Link
@@ -185,31 +195,34 @@ export default async function FeedbackPage({
             </Link>
           )}
 
-          <Link
-            href={`/student/case/${caseId}/quiz/post`}
-            className="block group"
-          >
-            <CCard hoverable className="p-6 h-full">
-              <ClipboardText
-                weight="duotone"
-                className="h-7 w-7 text-clinical-primary mb-3"
-              />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
-                Quiz
-              </p>
-              <p className="font-serif text-[20px] leading-tight text-clinical-fg font-medium mb-1">
-                Test what stuck.
-              </p>
-              <p className="text-[14px] text-clinical-muted-fg mb-4">
-                A short quiz to confirm you&rsquo;ve closed the loop.
-              </p>
-              <span className="inline-flex items-center text-[13px] font-medium text-clinical-primary">
-                Take the quiz
-                <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
-              </span>
-            </CCard>
-          </Link>
+          {postQuizReleased && (
+            <Link
+              href={`/student/case/${caseId}/quiz/post`}
+              className="block group"
+            >
+              <CCard hoverable className="p-6 h-full">
+                <ClipboardText
+                  weight="duotone"
+                  className="h-7 w-7 text-clinical-primary mb-3"
+                />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-clinical-primary mb-2">
+                  Quiz
+                </p>
+                <p className="font-serif text-[20px] leading-tight text-clinical-fg font-medium mb-1">
+                  Test what stuck.
+                </p>
+                <p className="text-[14px] text-clinical-muted-fg mb-4">
+                  A short quiz to confirm you&rsquo;ve closed the loop.
+                </p>
+                <span className="inline-flex items-center text-[13px] font-medium text-clinical-primary">
+                  Take the quiz
+                  <ArrowRight weight="bold" className="ml-1.5 h-3.5 w-3.5" />
+                </span>
+              </CCard>
+            </Link>
+          )}
         </section>
+        )}
 
         <div className="mt-10 flex items-center gap-3">
           <CLinkButton
