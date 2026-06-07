@@ -59,7 +59,7 @@ export function ClinicalNav({
           >
             F
           </span>
-          Femi
+          FemiMD
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">

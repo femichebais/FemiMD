@@ -29,7 +29,7 @@ export default function Home() {
             >
               F
             </span>
-            Femi
+            FemiMD
           </Link>
           <nav className="flex items-center gap-1">
             <Link
@@ -152,7 +152,7 @@ export default function Home() {
                 Think like a clinician — one decision at a time.
               </h2>
               <p className="mt-4 text-[16px] leading-[1.6] text-clinical-muted-fg">
-                Femi is for high-school and undergrad students who want to
+                FemiMD is for high-school and undergrad students who want to
                 feel real medicine before med school. Every attempt is
                 kept. Retakes append — they don&rsquo;t overwrite.
               </p>
@@ -210,7 +210,7 @@ export default function Home() {
 
       <footer className="border-t border-clinical-border">
         <div className="max-w-6xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-3 text-[12px] text-clinical-muted-fg">
-          <span>Femi Medical &middot; Clinical education platform</span>
+          <span>FemiMD &middot; Clinical education platform</span>
           <Link
             href="/login"
             className="hover:text-clinical-fg transition-colors"

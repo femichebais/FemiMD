@@ -48,7 +48,7 @@ const SITE_URL =
       : "http://localhost:3000");
 const DESCRIPTION =
   "Real patients. Real symptoms. Real decisions — minus the lecture. Interactive patient cases that teach clinical reasoning, step by step.";
-const SOCIAL_TITLE = "Femi Medical — Be the doctor. Solve the case.";
+const SOCIAL_TITLE = "FemiMD — Be the doctor. Solve the case.";
 
 export const metadata: Metadata = {
   // metadataBase resolves relative URLs in metadata (including the OG image
@@ -57,11 +57,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   // `template` lets each route export a short title ("Library") and it
-  // composes as "Library · Femi". Default keeps the descriptive phrasing
+  // composes as "Library · FemiMD". Default keeps the descriptive phrasing
   // search engines index well; the punchier copy lives in openGraph/twitter.
   title: {
-    template: "%s · Femi",
-    default: "Femi Medical — Clinical education for students",
+    template: "%s · FemiMD",
+    default: "FemiMD — Clinical education for students",
   },
   description: DESCRIPTION,
 
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     title: SOCIAL_TITLE,
     description: DESCRIPTION,
     type: "website",
-    siteName: "Femi Medical",
+    siteName: "FemiMD",
     url: SITE_URL,
     locale: "en_US",
     // Image is wired automatically from src/app/opengraph-image.tsx.
