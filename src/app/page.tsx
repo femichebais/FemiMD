@@ -97,6 +97,17 @@ export default function Home() {
           />
         </section>
 
+        {/* Credibility strip */}
+        <section className="bg-clinical-muted/30">
+          <div className="max-w-6xl mx-auto px-5 md:px-8 py-4 flex flex-wrap justify-center items-center gap-x-8 gap-y-2 text-[13px] font-medium text-clinical-muted-fg">
+            <span>Created by a practicing physician</span>
+            <span aria-hidden className="hidden sm:block">·</span>
+            <span>Real patient-inspired clinical cases</span>
+            <span aria-hidden className="hidden sm:block">·</span>
+            <span>Performance tracking for educators</span>
+          </div>
+        </section>
+
         {/* How it works */}
         <section
           id="how-it-works"
@@ -152,9 +163,12 @@ export default function Home() {
                 Think like a clinician — one decision at a time.
               </h2>
               <p className="mt-4 text-[16px] leading-[1.6] text-clinical-muted-fg">
-                FemiMD is for high-school and undergrad students who want to
-                feel real medicine before med school. Every attempt is
-                kept. Retakes append — they don&rsquo;t overwrite.
+                FemiMD is for high school and undergraduate students who want
+                to experience real clinical reasoning before medical school.
+              </p>
+              <p className="mt-3 text-[16px] leading-[1.6] text-clinical-muted-fg">
+                Develop the clinical reasoning skills used by physicians every
+                day.
               </p>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
@@ -178,8 +192,60 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Educators */}
+        <section className="bg-clinical-hero border-y border-clinical-border">
+          <div className="max-w-6xl mx-auto px-5 md:px-8 py-16 md:py-20">
+            <div className="grid gap-10 lg:grid-cols-[1fr_2fr] items-start">
+              <div>
+                <h2 className="font-serif text-[32px] md:text-[40px] leading-[1.1] tracking-[-0.02em] text-clinical-fg font-medium">
+                  Bring clinical reasoning into your classroom.
+                </h2>
+                <p className="mt-4 text-[16px] leading-[1.6] text-clinical-muted-fg">
+                  Interactive patient simulations, performance tracking, and
+                  structured case-based learning — designed for pre-med and
+                  science educators.
+                </p>
+                <p className="mt-6 text-[15px] leading-[1.6] text-clinical-muted-fg">
+                  Interested in bringing FemiMD to your school?
+                </p>
+                <a
+                  href="mailto:femi@femimd.com"
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-clinical font-medium transition-colors border border-clinical-border text-clinical-fg bg-clinical-bg hover:bg-clinical-muted h-10 px-4 text-[14px]"
+                >
+                  Contact FemiMD
+                </a>
+                <p className="mt-2 text-[13px] text-clinical-muted-fg">
+                  femi@femimd.com
+                </p>
+              </div>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                <Feature
+                  title="Create classrooms"
+                  body="Organise students and manage case access by class."
+                />
+                <Feature
+                  title="Track student progress"
+                  body="See performance across every case and every attempt."
+                />
+                <Feature
+                  title="Release cases on your schedule"
+                  body="Control which cases are active for your class and when."
+                />
+                <Feature
+                  title="View performance analytics"
+                  body="Spot where students are struggling and what's working."
+                />
+                <Feature
+                  title="Support individual or group learning"
+                  body="Works for self-paced study or structured assignments."
+                />
+              </ul>
+            </div>
+          </div>
+        </section>
+
         {/* Final CTA */}
-        <section className="border-t border-clinical-border bg-clinical-muted/40">
+        <section className="bg-clinical-muted/40">
           <div className="max-w-3xl mx-auto px-5 md:px-8 py-16 md:py-20 text-center">
             <Heartbeat
               weight="duotone"
@@ -189,12 +255,12 @@ export default function Home() {
               Ready when the patient walks in.
             </h2>
             <p className="text-[16px] leading-[1.6] text-clinical-muted-fg mb-7 max-w-xl mx-auto">
-              Create an account in seconds — we&apos;ll approve access and
-              email you when you&apos;re in.
+              Start your first patient case today and begin building real
+              clinical decision-making skills.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <CLinkButton href="/signup" size="lg" variant="primary">
-                Sign up
+                Start your first case
                 <ArrowRight weight="bold" className="h-4 w-4" />
               </CLinkButton>
               <Link
