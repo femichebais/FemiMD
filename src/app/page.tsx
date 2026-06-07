@@ -208,14 +208,15 @@ export default function Home() {
                 <p className="mt-6 text-[15px] leading-[1.6] text-clinical-muted-fg">
                   Interested in bringing FemiMD to your school?
                 </p>
-                <CLinkButton
+                <a
                   href="mailto:femi@femimd.com"
-                  size="md"
-                  variant="outline"
-                  className="mt-3"
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-clinical font-medium transition-colors border border-clinical-border text-clinical-fg bg-clinical-bg hover:bg-clinical-muted h-10 px-4 text-[14px]"
                 >
                   Contact FemiMD
-                </CLinkButton>
+                </a>
+                <p className="mt-2 text-[13px] text-clinical-muted-fg">
+                  femi@femimd.com
+                </p>
               </div>
               <ul className="grid gap-3 sm:grid-cols-2">
                 <Feature
